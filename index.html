@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Apple Bank Reviews – Dashboard</title>
+
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <style>
+    body { background:#f4f6fb; }
+    .card { border-radius: 16px; }
+    .kpi { font-size: 1.8rem; font-weight: 700; }
+    .badge-urgent { background:#dc3545; }
+    .badge-pos { background:#28a745; }
+    .badge-neg { background:#dc3545; }
+    .badge-neu { background:#6c757d; }
+    .row-urgent { background:#fff3f3 !important; }
+    .table-wrap { max-height: 65vh; overflow:auto; }
+    .small-muted { color:#6c757d; font-size: .85rem; }
+  </style>
+</head>
+<body>
+
+<div class="container my-4">
+  <h2 class="mb-3">Apple Bank Review Intelligence</h2>
+
+  <!-- KPIs -->
+  <div class="row g-3 mb-3">
+    <div class="col-md-3">
+      <div class="card p-3">
+        <div class="small-muted">Total Reviews</div>
+        <div id="kpiTotal" class="kpi">—</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card p-3">
+        <div class="small-muted">Avg Rating</div>
+        <div id="kpiAvg" class="kpi">—</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card p-3">
+        <div class="small-muted">Urgent</div>
+        <div id="kpiUrgent" class="kpi text-danger">—</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card p-3">
+        <div class="small-muted">Last 30 Days</div>
+        <div id="kpiRecent" class="kpi">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="row g-2 mb-3">
+    <div class="col-md-3">
+      <select id="fSent" class="form-select">
+        <option value="">All Sentiment</option>
+        <option value="positive">Positive</option>
+        <option value="negative">Negative</option>
+        <option value="neutral">Neutral</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <select id="fSource" class="form-select">
+        <option value="">All Sources</option>
+        <option value="Google Maps">Google Maps</option>
+        <option value="Trustpilot">Trustpilot</option>
+        <option value="WalletHub">WalletHub</option>
+        <option value="Reddit">Reddit</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <input id="fSearch" class="form-control" placeholder="Search text…">
+    </div>
+    <div class="col-md-3">
+      <button class="btn btn-primary w-100" onclick="load()">Refresh</button>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="row g-3 mb-3">
+    <div class="col-md-6">
+      <div class="card p-3">
+        <h6>Sentiment Distribution</h6>
+        <canvas id="sentChart"></canvas>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card p-3">
+        <h6>Top Categories</h6>
+        <canvas id="catChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="card p-2">
+    <div class="table-wrap">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-dark">
+          <tr>
+            <th>Date</th>
+            <th>Source</th>
+            <th>Author</th>
+            <th>Rating</th>
+            <th>Sentiment</th>
+            <th>Category</th>
+            <th>Urgent</th>
+            <th>Summary</th>
+            <th style="min-width:360px">Review</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ====== CONFIG ====== */
+const SUPABASE_URL = "https://dzbwmemdtgcdrnkztmwq.supabase.co";
+const SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY"; // replace
+
+/* ====== STATE ====== */
+let SENT_CHART, CAT_CHART;
+
+/* ====== HELPERS ====== */
+const el = id => document.getElementById(id);
+
+function badgeSent(s){
+  if (s === 'positive') return `<span class="badge badge-pos">positive</span>`;
+  if (s === 'negative') return `<span class="badge badge-neg">negative</span>`;
+  return `<span class="badge badge-neu">neutral</span>`;
+}
+
+function formatDate(d){
+  if (!d) return '';
+  try { return new Date(d).toLocaleString(); } catch { return d; }
+}
+
+/* ====== LOAD ====== */
+async function load(){
+  const sent = el('fSent').value;
+  const src  = el('fSource').value;
+  const q    = el('fSearch').value.toLowerCase();
+
+  let url = `${SUPABASE_URL}/rest/v1/ab_reviews?select=*`;
+  if (sent) url += `&sentiment=eq.${encodeURIComponent(sent)}`;
+  if (src)  url += `&source=eq.${encodeURIComponent(src)}`;
+  url += `&order=review_date.desc&limit=500`;
+
+  const res = await fetch(url, {
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`
+    }
+  });
+  const data = await res.json();
+
+  // client-side search
+  const rows = data.filter(r => {
+    if (!q) return true;
+    return (r.review_text || '').toLowerCase().includes(q)
+        || (r.ai_summary || '').toLowerCase().includes(q)
+        || (r.author || '').toLowerCase().includes(q);
+  });
+
+  renderKPIs(rows);
+  renderCharts(rows);
+  renderTable(rows);
+}
+
+/* ====== KPIs ====== */
+function renderKPIs(rows){
+  const total = rows.length;
+
+  const avg = rows.reduce((a,r)=>a+(Number(r.rating)||0),0) / (rows.filter(r=>r.rating!=null).length || 1);
+
+  const urgent = rows.filter(r=>r.is_urgent === true).length;
+
+  const now = new Date();
+  const d30 = new Date(); d30.setDate(now.getDate()-30);
+  const recent = rows.filter(r=>{
+    if (!r.review_date) return false;
+    const d = new Date(r.review_date);
+    return d >= d30;
+  }).length;
+
+  el('kpiTotal').textContent = total;
+  el('kpiAvg').textContent = isFinite(avg) ? avg.toFixed(2) : '—';
+  el('kpiUrgent').textContent = urgent;
+  el('kpiRecent').textContent = recent;
+}
+
+/* ====== CHARTS ====== */
+function renderCharts(rows){
+  const sentCount = {positive:0, negative:0, neutral:0};
+  const catCount = {};
+
+  rows.forEach(r=>{
+    const s = r.sentiment || 'neutral';
+    if (sentCount[s] !== undefined) sentCount[s]++;
+
+    const c = r.category || 'General';
+    catCount[c] = (catCount[c]||0)+1;
+  });
+
+  // Sentiment chart
+  const sentData = {
+    labels: ['positive','negative','neutral'],
+    datasets: [{
+      data: [sentCount.positive, sentCount.negative, sentCount.neutral]
+    }]
+  };
+
+  if (SENT_CHART) SENT_CHART.destroy();
+  SENT_CHART = new Chart(document.getElementById('sentChart'), {
+    type: 'doughnut',
+    data: sentData
+  });
+
+  // Category chart (top 6)
+  const topCats = Object.entries(catCount)
+    .sort((a,b)=>b[1]-a[1])
+    .slice(0,6);
+
+  if (CAT_CHART) CAT_CHART.destroy();
+  CAT_CHART = new Chart(document.getElementById('catChart'), {
+    type: 'bar',
+    data: {
+      labels: topCats.map(x=>x[0]),
+      datasets: [{ data: topCats.map(x=>x[1]) }]
+    },
+    options: { plugins: { legend: { display:false } } }
+  });
+}
+
+/* ====== TABLE ====== */
+function renderTable(rows){
+  const tbody = el('tbody');
+  tbody.innerHTML = '';
+
+  rows.forEach(r=>{
+    const tr = document.createElement('tr');
+    if (r.is_urgent) tr.classList.add('row-urgent');
+
+    tr.innerHTML = `
+      <td>${formatDate(r.review_date)}</td>
+      <td>${r.source || ''}</td>
+      <td>${r.author || ''}</td>
+      <td>${r.rating ?? ''}</td>
+      <td>${badgeSent(r.sentiment)}</td>
+      <td>${r.category || ''}</td>
+      <td>${r.is_urgent ? '<span class="badge badge-urgent">URGENT</span>' : ''}</td>
+      <td>${r.ai_summary || ''}</td>
+      <td>${r.review_text || ''}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+/* ====== INIT ====== */
+load();
+</script>
+
+</body>
+</html>
