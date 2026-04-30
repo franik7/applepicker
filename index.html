@@ -1,273 +1,1546 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Apple Bank Reviews – Dashboard</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apple Bank — Voice of Customer Intelligence</title>
+<script type="text/javascript" nonce="c3c555acbd6548b5b037e3f3e2c" src="//local.adguard.org?ts=1777580559685&amp;type=content-script&amp;dmn=chatgpt.com&amp;url=https%3A%2F%2Fchatgpt.com%2Fbackend-api%2Festuary%2Fcontent%3Fid%3Dfile_0000000091d071fd93b91535bac74289%26ts%3D493772%26p%3Dfs%26cid%3D1%26sig%3D482aab50bbed4d3d58e754049bf596241527187bdbc8b67bd0eea3887be14d42%26v%3D0&amp;app=chrome.exe&amp;css=2&amp;js=1&amp;rel=1&amp;rji=1&amp;sbe=1&amp;stealth=1&amp;st-loc&amp;st-dnt"></script><script type="text/javascript" nonce="c3c555acbd6548b5b037e3f3e2c" src="//local.adguard.org?ts=1777580559685&amp;name=AdGuard%20Extra&amp;name=AdGuard%20Popup%20Blocker&amp;type=user-script"></script><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <!-- Bootstrap -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface2: #1c2330;
+  --border: #30363d;
+  --text: #e6edf3;
+  --muted: #8b949e;
+  --accent: #2ea043;
+  --accent2: #1f6feb;
+  --red: #f85149;
+  --yellow: #e3b341;
+  --green: #3fb950;
+  --purple: #bc8cff;
+  --orange: #d29922;
+  --teal: #39c5cf;
+}
 
-  <style>
-    body { background:#f4f6fb; }
-    .card { border-radius: 16px; }
-    .kpi { font-size: 1.8rem; font-weight: 700; }
-    .badge-urgent { background:#dc3545; }
-    .badge-pos { background:#28a745; }
-    .badge-neg { background:#dc3545; }
-    .badge-neu { background:#6c757d; }
-    .row-urgent { background:#fff3f3 !important; }
-    .table-wrap { max-height: 65vh; overflow:auto; }
-    .small-muted { color:#6c757d; font-size: .85rem; }
-  </style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+/* ---- Sidebar ---- */
+#sidebar {
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  width: 220px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.sidebar-brand {
+  padding: 22px 20px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-brand .brand-name {
+  font-family: 'DM Serif Display', serif;
+  font-size: 17px;
+  color: var(--text);
+  line-height: 1.2;
+}
+.sidebar-brand .brand-sub {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-top: 2px;
+}
+
+.sidebar-nav { padding: 12px 0; flex: 1; }
+.nav-section-label {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  padding: 14px 20px 6px;
+}
+.nav-item { padding: 0; }
+.nav-link-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 20px;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all .15s;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+}
+.nav-link-item:hover { color: var(--text); background: var(--surface2); }
+.nav-link-item.active { color: var(--text); border-left-color: var(--accent2); background: rgba(31,111,235,0.1); }
+.nav-link-item i { font-size: 15px; width: 18px; text-align: center; }
+
+.sidebar-footer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ---- Main ---- */
+#main {
+  margin-left: 220px;
+  min-height: 100vh;
+}
+
+.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.topbar-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 20px;
+}
+.topbar-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.badge-urgent {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(248,81,73,0.15);
+  color: var(--red);
+  border: 1px solid rgba(248,81,73,0.4);
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%,100% { opacity: 1; }
+  50% { opacity: .6; }
+}
+
+/* ---- Pages ---- */
+.page { display: none; padding: 28px; }
+.page.active { display: block; }
+
+/* ---- Cards ---- */
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px 22px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color .2s;
+}
+.stat-card:hover { border-color: var(--accent2); }
+.stat-card .stat-label {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+.stat-card .stat-value {
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1;
+  font-family: 'DM Serif Display', serif;
+}
+.stat-card .stat-sub {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+.stat-card .stat-icon {
+  position: absolute;
+  right: 18px;
+  top: 18px;
+  font-size: 22px;
+  opacity: .15;
+}
+
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px 22px;
+}
+.chart-card .card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.chart-card .card-sub {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 18px;
+}
+
+/* ---- Review feed ---- */
+.review-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 10px;
+  transition: border-color .2s;
+}
+.review-item:hover { border-color: var(--accent2); }
+.review-item.urgent { border-left: 3px solid var(--red); }
+.review-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  gap: 10px;
+}
+.review-author { font-weight: 600; font-size: 13px; }
+.review-meta { font-size: 11px; color: var(--muted); margin-top: 1px; }
+.review-text {
+  font-size: 13px;
+  color: #cdd9e5;
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
+.review-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.tag {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-weight: 500;
+  border: 1px solid;
+}
+.tag-positive { color: var(--green); border-color: rgba(63,185,80,.4); background: rgba(63,185,80,.08); }
+.tag-negative { color: var(--red); border-color: rgba(248,81,73,.4); background: rgba(248,81,73,.08); }
+.tag-neutral { color: var(--muted); border-color: var(--border); background: var(--surface2); }
+.tag-urgent { color: var(--red); border-color: var(--red); background: rgba(248,81,73,.12); }
+.tag-topic { color: var(--purple); border-color: rgba(188,140,255,.3); background: rgba(188,140,255,.07); }
+.tag-source { color: var(--teal); border-color: rgba(57,197,207,.3); background: rgba(57,197,207,.07); }
+
+.stars { color: var(--yellow); font-size: 12px; }
+
+/* ---- Filters ---- */
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+  align-items: center;
+}
+.filter-btn {
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .15s;
+}
+.filter-btn:hover, .filter-btn.active {
+  background: var(--accent2);
+  color: #fff;
+  border-color: var(--accent2);
+}
+.filter-btn.active-red { background: var(--red); color: #fff; border-color: var(--red); }
+
+.search-input {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 13px;
+  width: 260px;
+  outline: none;
+}
+.search-input:focus { border-color: var(--accent2); }
+
+/* ---- Branch table ---- */
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  font-weight: 600;
+}
+.data-table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text);
+}
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: var(--surface2); }
+
+/* ---- Rating bar ---- */
+.rating-bar-container { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.rating-bar-label { font-size: 12px; color: var(--muted); width: 14px; text-align: right; }
+.rating-bar-track { flex: 1; height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+.rating-bar-fill { height: 100%; border-radius: 4px; transition: width .6s ease; }
+.rating-bar-count { font-size: 11px; color: var(--muted); width: 28px; text-align: right; }
+
+/* ---- Topic pill list ---- */
+.topic-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 12px;
+  margin: 3px;
+}
+.topic-pill .pill-count {
+  background: var(--accent2);
+  color: #fff;
+  border-radius: 10px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* ---- Priority indicator ---- */
+.priority-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+.p5 { background: var(--red); }
+.p4 { background: var(--orange); }
+.p3 { background: var(--yellow); }
+.p2 { background: var(--teal); }
+.p1 { background: var(--green); }
+
+/* ---- Source badge ---- */
+.source-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.src-google { background: rgba(57,197,207,.12); color: var(--teal); }
+.src-trustpilot { background: rgba(46,160,67,.12); color: var(--green); }
+.src-wallethub { background: rgba(188,140,255,.12); color: var(--purple); }
+.src-facebook { background: rgba(31,111,235,.12); color: var(--accent2); }
+
+/* ---- Urgent panel ---- */
+.urgent-card {
+  background: rgba(248,81,73,.06);
+  border: 1px solid rgba(248,81,73,.3);
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 10px;
+}
+.urgent-reason-badge {
+  display: inline-block;
+  font-size: 10px;
+  padding: 2px 8px;
+  background: rgba(248,81,73,.2);
+  color: var(--red);
+  border-radius: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+
+/* scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+.divider { border-color: var(--border); }
+.section-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+.section-sub { font-size: 12px; color: var(--muted); margin-bottom: 18px; }
+
+.load-more-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all .15s;
+  display: block;
+  width: 100%;
+  text-align: center;
+  margin-top: 8px;
+}
+.load-more-btn:hover { color: var(--text); border-color: var(--accent2); }
+
+.ai-summary-text {
+  font-size: 12px;
+  color: var(--muted);
+  font-style: italic;
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: var(--surface2);
+  border-radius: 6px;
+  border-left: 2px solid var(--accent2);
+}
+</style>
 </head>
 <body>
 
-<div class="container my-4">
-  <h2 class="mb-3">Apple Bank Review Intelligence</h2>
+<!-- Sidebar -->
+<nav id="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-name">Apple Bank</div>
+    <div class="brand-sub">Voice of Customer</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-label">Analytics</div>
+    <div class="nav-item">
+      <a class="nav-link-item active" onclick="showPage('overview')">
+        <i class="bi bi-grid-1x2"></i> Overview
+      </a>
+    </div>
+    <div class="nav-item">
+      <a class="nav-link-item" onclick="showPage('sentiment')">
+        <i class="bi bi-bar-chart-line"></i> Sentiment
+      </a>
+    </div>
+    <div class="nav-item">
+      <a class="nav-link-item" onclick="showPage('branches')">
+        <i class="bi bi-geo-alt"></i> Branches
+      </a>
+    </div>
+    <div class="nav-section-label">Reviews</div>
+    <div class="nav-item">
+      <a class="nav-link-item" onclick="showPage('reviews')">
+        <i class="bi bi-chat-left-text"></i> All Reviews
+      </a>
+    </div>
+    <div class="nav-item">
+      <a class="nav-link-item" onclick="showPage('urgent')">
+        <i class="bi bi-exclamation-triangle"></i> Urgent <span id="sidebar-urgent-badge" style="margin-left:auto;"></span>
+      </a>
+    </div>
+    <div class="nav-item">
+      <a class="nav-link-item" onclick="showPage('staff')">
+        <i class="bi bi-person-badge"></i> Staff Mentions
+      </a>
+    </div>
+  </div>
+  <div class="sidebar-footer">
+    253 reviews · 4 sources<br>
+    Last update: Apr 30, 2026
+  </div>
+</nav>
 
-  <!-- KPIs -->
-  <div class="row g-3 mb-3">
-    <div class="col-md-3">
-      <div class="card p-3">
-        <div class="small-muted">Total Reviews</div>
-        <div id="kpiTotal" class="kpi">—</div>
+<!-- Main -->
+<div id="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="topbar-title">Overview</div>
+      <div class="topbar-meta">Apple Bank for Savings · New York City · All locations</div>
+    </div>
+    <div id="urgent-indicator"></div>
+  </div>
+
+  <!-- ===== OVERVIEW PAGE ===== -->
+  <div id="page-overview" class="page active">
+    <!-- KPI Row -->
+    <div class="row g-3 mb-3">
+      <div class="col-md-3 col-6">
+        <div class="stat-card">
+          <div class="stat-icon"><i class="bi bi-chat-quote"></i></div>
+          <div class="stat-label">Total Reviews</div>
+          <div class="stat-value" style="color:var(--text)">253</div>
+          <div class="stat-sub">Google Maps, WalletHub, Trustpilot, Facebook</div>
+        </div>
+      </div>
+      <div class="col-md-3 col-6">
+        <div class="stat-card">
+          <div class="stat-icon"><i class="bi bi-star"></i></div>
+          <div class="stat-label">Avg Rating</div>
+          <div class="stat-value" style="color:var(--yellow)">3.73</div>
+          <div class="stat-sub">Out of 5 · 251 rated reviews</div>
+        </div>
+      </div>
+      <div class="col-md-3 col-6">
+        <div class="stat-card">
+          <div class="stat-icon"><i class="bi bi-emoji-smile"></i></div>
+          <div class="stat-label">Positive Rate</div>
+          <div class="stat-value" style="color:var(--green)">48%</div>
+          <div class="stat-sub">122 positive · 66 negative · 65 neutral</div>
+        </div>
+      </div>
+      <div class="col-md-3 col-6">
+        <div class="stat-card">
+          <div class="stat-icon"><i class="bi bi-exclamation-circle"></i></div>
+          <div class="stat-label">Urgent Cases</div>
+          <div class="stat-value" style="color:var(--red)">11</div>
+          <div class="stat-sub">Requiring immediate attention</div>
+        </div>
       </div>
     </div>
-    <div class="col-md-3">
-      <div class="card p-3">
-        <div class="small-muted">Avg Rating</div>
-        <div id="kpiAvg" class="kpi">—</div>
+
+    <!-- Charts Row 1 -->
+    <div class="row g-3 mb-3">
+      <div class="col-md-5">
+        <div class="chart-card h-100">
+          <div class="card-title">Sentiment by Source</div>
+          <div class="card-sub">Distribution across all review platforms</div>
+          <canvas id="sentimentBySourceChart" height="220"></canvas>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="chart-card h-100">
+          <div class="card-title">Rating Distribution</div>
+          <div class="card-sub">Star breakdown across 251 reviews</div>
+          <div id="rating-bars" style="margin-top:12px;"></div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="chart-card h-100">
+          <div class="card-title">Response Priority</div>
+          <div class="card-sub">Reviews by urgency level</div>
+          <canvas id="priorityChart" height="200"></canvas>
+          <div style="margin-top:10px;">
+            <div style="font-size:11px;color:var(--muted);">
+              <span class="priority-dot p5"></span>P5 Urgent (11) &nbsp;
+              <span class="priority-dot p4"></span>P4 High (35)<br>
+              <span class="priority-dot p3"></span>P3 Medium (20) &nbsp;
+              <span class="priority-dot p2"></span>P2 Low (13)<br>
+              <span class="priority-dot p1"></span>P1 Positive (174)
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-    <div class="col-md-3">
-      <div class="card p-3">
-        <div class="small-muted">Urgent</div>
-        <div id="kpiUrgent" class="kpi text-danger">—</div>
+
+    <!-- Charts Row 2 -->
+    <div class="row g-3 mb-3">
+      <div class="col-md-8">
+        <div class="chart-card">
+          <div class="card-title">Monthly Review Trend</div>
+          <div class="card-sub">Sentiment volume over the last 8 months</div>
+          <canvas id="trendChart" height="140"></canvas>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="chart-card">
+          <div class="card-title">Category Breakdown</div>
+          <div class="card-sub">What customers talk about</div>
+          <canvas id="categoryChart" height="200"></canvas>
+        </div>
       </div>
     </div>
-    <div class="col-md-3">
-      <div class="card p-3">
-        <div class="small-muted">Last 30 Days</div>
-        <div id="kpiRecent" class="kpi">—</div>
+
+    <!-- Top Topics + Source Stats -->
+    <div class="row g-3">
+      <div class="col-md-7">
+        <div class="chart-card">
+          <div class="card-title">Top Topics</div>
+          <div class="card-sub">Most frequently mentioned themes across all sources</div>
+          <div id="topic-pills"></div>
+        </div>
+      </div>
+      <div class="col-md-5">
+        <div class="chart-card">
+          <div class="card-title">Source Performance</div>
+          <div class="card-sub">Average rating and sentiment per platform</div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Source</th>
+                <th>Reviews</th>
+                <th>Avg Rating</th>
+                <th>Sentiment</th>
+                <th>Urgent</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="source-badge src-google"><i class="bi bi-map"></i> Google Maps</span></td>
+                <td>225</td>
+                <td><span style="color:var(--yellow)">★ 3.91</span></td>
+                <td><span style="color:var(--green)">51% pos</span></td>
+                <td><span style="color:var(--red)">8</span></td>
+              </tr>
+              <tr>
+                <td><span class="source-badge src-wallethub"><i class="bi bi-shield-check"></i> WalletHub</span></td>
+                <td>15</td>
+                <td><span style="color:var(--orange)">★ 2.53</span></td>
+                <td><span style="color:var(--red)">67% neg</span></td>
+                <td><span style="color:var(--red)">2</span></td>
+              </tr>
+              <tr>
+                <td><span class="source-badge src-trustpilot"><i class="bi bi-star-half"></i> Trustpilot</span></td>
+                <td>11</td>
+                <td><span style="color:var(--red)">★ 1.73</span></td>
+                <td><span style="color:var(--red)">82% neg</span></td>
+                <td><span style="color:var(--red)">1</span></td>
+              </tr>
+              <tr>
+                <td><span class="source-badge src-facebook"><i class="bi bi-facebook"></i> Facebook</span></td>
+                <td>2</td>
+                <td><span style="color:var(--muted)">N/A</span></td>
+                <td><span style="color:var(--red)">100% neg</span></td>
+                <td><span style="color:var(--muted)">0</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Filters -->
-  <div class="row g-2 mb-3">
-    <div class="col-md-3">
-      <select id="fSent" class="form-select">
-        <option value="">All Sentiment</option>
-        <option value="positive">Positive</option>
-        <option value="negative">Negative</option>
-        <option value="neutral">Neutral</option>
-      </select>
+  <!-- ===== SENTIMENT PAGE ===== -->
+  <div id="page-sentiment" class="page">
+    <div class="row g-3 mb-3">
+      <div class="col-md-4 col-6">
+        <div class="stat-card">
+          <div class="stat-label">Positive Reviews</div>
+          <div class="stat-value" style="color:var(--green)">122</div>
+          <div class="stat-sub">48.2% of all reviews</div>
+        </div>
+      </div>
+      <div class="col-md-4 col-6">
+        <div class="stat-card">
+          <div class="stat-label">Negative Reviews</div>
+          <div class="stat-value" style="color:var(--red)">66</div>
+          <div class="stat-sub">26.1% of all reviews</div>
+        </div>
+      </div>
+      <div class="col-md-4 col-6">
+        <div class="stat-card">
+          <div class="stat-label">Neutral Reviews</div>
+          <div class="stat-value" style="color:var(--muted)">65</div>
+          <div class="stat-sub">25.7% of all reviews</div>
+        </div>
+      </div>
     </div>
-    <div class="col-md-3">
-      <select id="fSource" class="form-select">
-        <option value="">All Sources</option>
-        <option value="Google Maps">Google Maps</option>
-        <option value="Trustpilot">Trustpilot</option>
-        <option value="WalletHub">WalletHub</option>
-        <option value="Reddit">Reddit</option>
-      </select>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <div class="chart-card">
+          <div class="card-title">Sentiment Over Time</div>
+          <div class="card-sub">Monthly breakdown by sentiment type</div>
+          <canvas id="sentimentTrendChart" height="200"></canvas>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="chart-card">
+          <div class="card-title">Negative Review Categories</div>
+          <div class="card-sub">What's driving negative feedback</div>
+          <canvas id="negCategoryChart" height="200"></canvas>
+        </div>
+      </div>
     </div>
-    <div class="col-md-3">
-      <input id="fSearch" class="form-control" placeholder="Search text…">
-    </div>
-    <div class="col-md-3">
-      <button class="btn btn-primary w-100" onclick="load()">Refresh</button>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div class="chart-card">
+          <div class="card-title">Urgency Breakdown</div>
+          <div class="card-sub">Reason classification for 11 urgent reviews</div>
+          <div style="margin-top:10px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
+              <span style="color:var(--muted);font-size:13px;"><i class="bi bi-shield-x" style="color:var(--red);margin-right:6px;"></i>Discrimination</span>
+              <span style="color:var(--red);font-weight:600;">5 cases</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
+              <span style="color:var(--muted);font-size:13px;"><i class="bi bi-bank" style="color:var(--orange);margin-right:6px;"></i>Money Deposited Wrong Account</span>
+              <span style="color:var(--orange);font-weight:600;">3 cases</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
+              <span style="color:var(--muted);font-size:13px;"><i class="bi bi-bug" style="color:var(--yellow);margin-right:6px;"></i>Fraud Mention</span>
+              <span style="color:var(--yellow);font-weight:600;">2 cases</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;">
+              <span style="color:var(--muted);font-size:13px;"><i class="bi bi-lock" style="color:var(--purple);margin-right:6px;"></i>Account Frozen</span>
+              <span style="color:var(--purple);font-weight:600;">1 case</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="chart-card">
+          <div class="card-title">Staff Sentiment Split</div>
+          <div class="card-sub">When staff is mentioned — how is it framed?</div>
+          <canvas id="staffSentimentChart" height="200"></canvas>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- Charts -->
-  <div class="row g-3 mb-3">
-    <div class="col-md-6">
-      <div class="card p-3">
-        <h6>Sentiment Distribution</h6>
-        <canvas id="sentChart"></canvas>
-      </div>
+  <!-- ===== BRANCHES PAGE ===== -->
+  <div id="page-branches" class="page">
+    <div class="section-title">Branch Performance</div>
+    <div class="section-sub">Locations with 3+ reviews ranked by average rating</div>
+    <div class="chart-card mb-3">
+      <canvas id="branchChart" height="300"></canvas>
     </div>
-    <div class="col-md-6">
-      <div class="card p-3">
-        <h6>Top Categories</h6>
-        <canvas id="catChart"></canvas>
-      </div>
-    </div>
-  </div>
-
-  <!-- Table -->
-  <div class="card p-2">
-    <div class="table-wrap">
-      <table class="table table-hover align-middle mb-0">
-        <thead class="table-dark">
+    <div class="chart-card">
+      <div class="card-title" style="margin-bottom:14px;">Branch Detail Table</div>
+      <table class="data-table" id="branch-table">
+        <thead>
           <tr>
-            <th>Date</th>
-            <th>Source</th>
-            <th>Author</th>
-            <th>Rating</th>
-            <th>Sentiment</th>
-            <th>Category</th>
-            <th>Urgent</th>
-            <th>Summary</th>
-            <th style="min-width:360px">Review</th>
+            <th>Address</th>
+            <th>Reviews</th>
+            <th>Avg Rating</th>
+            <th>Negative</th>
+            <th>Status</th>
           </tr>
         </thead>
-        <tbody id="tbody"></tbody>
+        <tbody id="branch-tbody"></tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- ===== ALL REVIEWS PAGE ===== -->
+  <div id="page-reviews" class="page">
+    <div class="filter-bar mb-3">
+      <input type="text" class="search-input" id="review-search" placeholder="🔍  Search reviews, authors, topics…" oninput="renderReviews()">
+      <button class="filter-btn active" onclick="setFilter('all')">All</button>
+      <button class="filter-btn" onclick="setFilter('positive')">😊 Positive</button>
+      <button class="filter-btn" onclick="setFilter('negative')">😞 Negative</button>
+      <button class="filter-btn" onclick="setFilter('neutral')">😐 Neutral</button>
+      <button class="filter-btn" onclick="setFilter('Google Maps')">Google Maps</button>
+      <button class="filter-btn" onclick="setFilter('WalletHub')">WalletHub</button>
+      <button class="filter-btn" onclick="setFilter('Trustpilot')">Trustpilot</button>
+    </div>
+    <div id="review-count" style="font-size:12px;color:var(--muted);margin-bottom:12px;"></div>
+    <div id="reviews-container"></div>
+    <button class="load-more-btn" id="load-more-btn" onclick="loadMoreReviews()">Load more reviews</button>
+  </div>
+
+  <!-- ===== URGENT PAGE ===== -->
+  <div id="page-urgent" class="page">
+    <div class="section-title" style="color:var(--red)"><i class="bi bi-exclamation-triangle-fill"></i> Urgent Reviews</div>
+    <div class="section-sub">11 reviews flagged for immediate attention — discrimination, fraud, wrong deposits, frozen accounts</div>
+    <div id="urgent-container"></div>
+  </div>
+
+  <!-- ===== STAFF PAGE ===== -->
+  <div id="page-staff" class="page">
+    <div class="section-title">Staff Mentions</div>
+    <div class="section-sub">96 reviews mention specific staff members by name or role</div>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <div class="chart-card">
+          <div class="card-title">Most Mentioned Staff</div>
+          <div class="card-sub">Named individuals appearing in reviews</div>
+          <div id="staff-mentions-list"></div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="chart-card">
+          <div class="card-title">Staff Sentiment Examples</div>
+          <div class="card-sub">Recent reviews mentioning staff</div>
+          <div id="staff-review-samples"></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-/* ====== CONFIG ====== */
+// ============================================================
+// DATA SOURCE — Supabase
+// ============================================================
+
 const SUPABASE_URL = "https://dzbwmemdtgcdrnkztmwq.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR6YndtZW1kdGdjZHJua3p0bXdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NzMyODgsImV4cCI6MjA5MjU0OTI4OH0.G4_NCZhjfyTB4ZFrpm5lyCwHSUYuRjJWO-BPh5SzIBg"; // replace
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR6YndtZW1kdGdjZHJua3p0bXdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NzMyODgsImV4cCI6MjA5MjU0OTI4OH0.G4_NCZhjfyTB4ZFrpm5lyCwHSUYuRjJWO-BPh5SzIBg";
 
-/* ====== STATE ====== */
-let SENT_CHART, CAT_CHART;
+// Change this if your table has another name.
+const SUPABASE_TABLE = "ab_reviews";
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-/* ====== HELPERS ====== */
-const el = id => document.getElementById(id);
+let REVIEWS = [];
+let charts = {};
 
-function badgeSent(s){
-  if (s === 'positive') return `<span class="badge badge-pos">positive</span>`;
-  if (s === 'negative') return `<span class="badge badge-neg">negative</span>`;
-  return `<span class="badge badge-neu">neutral</span>`;
-}
-
-function formatDate(d){
-  if (!d) return '';
-  try { return new Date(d).toLocaleString(); } catch { return d; }
-}
-
-/* ====== LOAD ====== */
-async function load(){
-  const sent = el('fSent').value;
-  const src  = el('fSource').value;
-  const q    = el('fSearch').value.toLowerCase();
-
-  let url = `${SUPABASE_URL}/rest/v1/ab_reviews?select=*`;
-  if (sent) url += `&sentiment=eq.${encodeURIComponent(sent)}`;
-  if (src)  url += `&source=eq.${encodeURIComponent(src)}`;
-  url += `&order=review_date.desc&limit=500`;
-
-  const res = await fetch(url, {
-    headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`
+function toArray(value) {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [value];
+    } catch (_) {
+      return value.split(",").map(v => v.trim()).filter(Boolean);
     }
-  });
-  const data = await res.json();
-
-  // client-side search
-  const rows = data.filter(r => {
-    if (!q) return true;
-    return (r.review_text || '').toLowerCase().includes(q)
-        || (r.ai_summary || '').toLowerCase().includes(q)
-        || (r.author || '').toLowerCase().includes(q);
-  });
-
-  renderKPIs(rows);
-  renderCharts(rows);
-  renderTable(rows);
+  }
+  return [];
 }
 
-/* ====== KPIs ====== */
-function renderKPIs(rows){
-  const total = rows.length;
+function normalizeReview(r) {
+  const priority = Number(r.response_priority ?? r.priority ?? 1);
+  const ratingRaw = r.rating ?? r.stars ?? r.score ?? null;
+  const rating = ratingRaw === null || ratingRaw === "" ? null : Number(ratingRaw);
+  const isUrgent = Boolean(r.is_urgent ?? r.urgent ?? priority >= 5);
 
-  const avg = rows.reduce((a,r)=>a+(Number(r.rating)||0),0) / (rows.filter(r=>r.rating!=null).length || 1);
-
-  const urgent = rows.filter(r=>r.is_urgent === true).length;
-
-  const now = new Date();
-  const d30 = new Date(); d30.setDate(now.getDate()-30);
-  const recent = rows.filter(r=>{
-    if (!r.review_date) return false;
-    const d = new Date(r.review_date);
-    return d >= d30;
-  }).length;
-
-  el('kpiTotal').textContent = total;
-  el('kpiAvg').textContent = isFinite(avg) ? avg.toFixed(2) : '—';
-  el('kpiUrgent').textContent = urgent;
-  el('kpiRecent').textContent = recent;
-}
-
-/* ====== CHARTS ====== */
-function renderCharts(rows){
-  const sentCount = {positive:0, negative:0, neutral:0};
-  const catCount = {};
-
-  rows.forEach(r=>{
-    const s = r.sentiment || 'neutral';
-    if (sentCount[s] !== undefined) sentCount[s]++;
-
-    const c = r.category || 'General';
-    catCount[c] = (catCount[c]||0)+1;
-  });
-
-  // Sentiment chart
-  const sentData = {
-    labels: ['positive','negative','neutral'],
-    datasets: [{
-      data: [sentCount.positive, sentCount.negative, sentCount.neutral]
-    }]
+  return {
+    id: r.id ?? r.review_id ?? r.external_id ?? crypto.randomUUID(),
+    source: r.source ?? r.platform ?? r.review_source ?? "Unknown",
+    branch_name: r.branch_name ?? r.location_name ?? r.business_name ?? null,
+    branch_address: r.branch_address ?? r.address ?? r.location_address ?? null,
+    author: r.author ?? r.reviewer_name ?? r.name ?? "Anonymous",
+    rating,
+    review_text: r.review_text ?? r.text ?? r.content ?? r.body ?? "",
+    review_date: r.review_date ?? r.date ?? r.created_at ?? r.published_at ?? null,
+    sentiment: (r.sentiment ?? r.ai_sentiment ?? "neutral").toLowerCase(),
+    category: r.category ?? r.final_category ?? r.ai_category ?? "General",
+    is_urgent: isUrgent,
+    ai_summary: r.ai_summary ?? r.summary ?? null,
+    urgency_reason: r.urgency_reason ?? r.urgent_reason ?? null,
+    staff_mentioned: r.staff_mentioned ?? r.staff_name ?? null,
+    staff_sentiment: r.staff_sentiment ?? null,
+    competitor_mentioned: r.competitor_mentioned ?? r.competitor ?? null,
+    response_priority: priority,
+    topics: toArray(r.topics ?? r.ai_topics ?? r.tags),
+    review_url: r.review_url ?? r.url ?? r.source_url ?? ""
   };
+}
 
-  if (SENT_CHART) SENT_CHART.destroy();
-  SENT_CHART = new Chart(document.getElementById('sentChart'), {
-    type: 'doughnut',
-    data: sentData
-  });
+async function loadReviews() {
+  const main = document.getElementById("reviews-container");
+  if (main) main.innerHTML = `<div class="review-item">Loading reviews from Supabase…</div>`;
 
-  // Category chart (top 6)
-  const topCats = Object.entries(catCount)
-    .sort((a,b)=>b[1]-a[1])
-    .slice(0,6);
+  const { data, error } = await supabaseClient
+    .from(SUPABASE_TABLE)
+    .select("*")
+    .order("review_date", { ascending: false, nullsFirst: false });
 
-  if (CAT_CHART) CAT_CHART.destroy();
-  CAT_CHART = new Chart(document.getElementById('catChart'), {
+  if (error) {
+    console.error("Supabase error:", error);
+    const msg = `Supabase load error: ${error.message}. Check table name, RLS policy, and column names.`;
+    if (main) main.innerHTML = `<div class="urgent-card">${msg}</div>`;
+    document.getElementById("urgent-indicator").innerHTML = `<span class="badge-urgent">Data error</span>`;
+    return;
+  }
+
+  REVIEWS = (data || []).map(normalizeReview);
+  applyDashboardMetrics();
+  initOverviewCharts();
+  initSentimentCharts();
+  renderUrgent();
+  renderBranches();
+  renderStaff();
+  renderReviews();
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-link-item').forEach(l => l.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  const navEl = document.querySelector(`[onclick="showPage('${name}')"]`);
+  if (navEl) navEl.classList.add('active');
+  const titles = { overview: 'Overview', sentiment: 'Sentiment Analysis', branches: 'Branch Performance', reviews: 'All Reviews', urgent: 'Urgent Reviews', staff: 'Staff Mentions' };
+  document.getElementById('topbar-title').textContent = titles[name] || name;
+  if (name === 'reviews' && !reviewsInitialized) initReviews();
+  if (name === 'urgent') renderUrgent();
+  if (name === 'staff') renderStaff();
+  if (name === 'branches') renderBranches();
+}
+
+// ============================================================
+// CHART.JS GLOBAL CONFIG
+// ============================================================
+Chart.defaults.color = '#8b949e';
+Chart.defaults.borderColor = '#30363d';
+Chart.defaults.font.family = 'DM Sans';
+
+const CHART_COLORS = {
+  positive: '#3fb950',
+  negative: '#f85149',
+  neutral: '#8b949e',
+  blue: '#1f6feb',
+  purple: '#bc8cff',
+  yellow: '#e3b341',
+  teal: '#39c5cf',
+};
+
+// ============================================================
+// OVERVIEW CHARTS
+// ============================================================
+function initOverviewCharts() {
+  // Sentiment by source bar chart
+  new Chart(document.getElementById('sentimentBySourceChart'), {
     type: 'bar',
     data: {
-      labels: topCats.map(x=>x[0]),
-      datasets: [{ data: topCats.map(x=>x[1]) }]
+      labels: ['Google Maps', 'WalletHub', 'Trustpilot', 'Facebook'],
+      datasets: [
+        { label: 'Positive', data: [116, 5, 1, 0], backgroundColor: 'rgba(63,185,80,0.8)' },
+        { label: 'Neutral', data: [64, 0, 1, 0], backgroundColor: 'rgba(139,148,158,0.6)' },
+        { label: 'Negative', data: [45, 10, 9, 2], backgroundColor: 'rgba(248,81,73,0.8)' },
+      ]
     },
-    options: { plugins: { legend: { display:false } } }
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'top', labels: { usePointStyle: true, pointStyleWidth: 8, padding: 16, font: { size: 11 } } } },
+      scales: {
+        x: { stacked: true, grid: { color: 'rgba(48,54,61,0.5)' } },
+        y: { stacked: true, grid: { color: 'rgba(48,54,61,0.5)' } }
+      }
+    }
+  });
+
+  // Rating bars
+  const ratingData = { 5: 156, 4: 10, 3: 13, 2: 5, 1: 67 };
+  const total = 251;
+  const colors = { 5: '#3fb950', 4: '#39c5cf', 3: '#e3b341', 2: '#d29922', 1: '#f85149' };
+  let html = '';
+  for (let s = 5; s >= 1; s--) {
+    const count = ratingData[s];
+    const pct = (count / total * 100).toFixed(0);
+    html += `<div class="rating-bar-container">
+      <div class="rating-bar-label">${s}</div>
+      <div class="rating-bar-track"><div class="rating-bar-fill" style="width:${pct}%;background:${colors[s]};"></div></div>
+      <div class="rating-bar-count">${count}</div>
+    </div>`;
+  }
+  document.getElementById('rating-bars').innerHTML = html;
+
+  // Priority donut
+  new Chart(document.getElementById('priorityChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['P1 Positive', 'P2 Low', 'P3 Medium', 'P4 High', 'P5 Urgent'],
+      datasets: [{ data: [174, 13, 20, 35, 11], backgroundColor: ['#3fb950','#39c5cf','#e3b341','#d29922','#f85149'], borderWidth: 0, hoverOffset: 6 }]
+    },
+    options: { responsive: true, cutout: '65%', plugins: { legend: { display: false } } }
+  });
+
+  // Trend chart
+  const months = ['Sep 25', 'Oct 25', 'Nov 25', 'Dec 25', 'Jan 26', 'Feb 26', 'Mar 26', 'Apr 26'];
+  new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+      labels: months,
+      datasets: [
+        { label: 'Positive', data: [7,3,4,7,11,17,11,16], borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,0.1)', tension: 0.4, fill: true, pointRadius: 3 },
+        { label: 'Negative', data: [4,1,4,2,5,5,3,8], borderColor: '#f85149', backgroundColor: 'rgba(248,81,73,0.1)', tension: 0.4, fill: true, pointRadius: 3 },
+        { label: 'Neutral', data: [5,5,1,5,0,1,5,5], borderColor: '#8b949e', backgroundColor: 'rgba(139,148,158,0.05)', tension: 0.4, fill: true, pointRadius: 3 },
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'top', labels: { usePointStyle: true, padding: 16, font: { size: 11 } } } },
+      scales: { x: { grid: { color: 'rgba(48,54,61,0.5)' } }, y: { grid: { color: 'rgba(48,54,61,0.5)' } } }
+    }
+  });
+
+  // Category donut
+  new Chart(document.getElementById('categoryChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Customer Service', 'General', 'Account Issues', 'Wait Times', 'Fees', 'Fraud & Security', 'ATM & Branch'],
+      datasets: [{ data: [123, 93, 17, 8, 4, 3, 3], backgroundColor: ['#1f6feb','#39c5cf','#f85149','#e3b341','#bc8cff','#d29922','#3fb950'], borderWidth: 0, hoverOffset: 4 }]
+    },
+    options: { responsive: true, cutout: '55%', plugins: { legend: { position: 'right', labels: { font: { size: 10 }, padding: 8, boxWidth: 10 } } } }
+  });
+
+  // Topics
+  const topics = [['friendly staff',40],['customer service',29],['helpful staff',18],['wait times',16],['excellent customer service',15],['poor customer service',11],['rude teller',10],['rude staff',9],['excellent service',6],['good customer service',5],['great customer service',5],['professional service',5],['knowledgeable staff',4],['account issues',4],['CD rates',4]];
+  const maxCount = topics[0][1];
+  document.getElementById('topic-pills').innerHTML = topics.map(([t, c]) =>
+    `<span class="topic-pill"><span>${t}</span><span class="pill-count">${c}</span></span>`
+  ).join('');
+}
+
+// ============================================================
+// SENTIMENT PAGE CHARTS
+// ============================================================
+function initSentimentCharts() {
+  const months = ['Sep 25', 'Oct 25', 'Nov 25', 'Dec 25', 'Jan 26', 'Feb 26', 'Mar 26', 'Apr 26'];
+  new Chart(document.getElementById('sentimentTrendChart'), {
+    type: 'bar',
+    data: {
+      labels: months,
+      datasets: [
+        { label: 'Positive', data: [7,3,4,7,11,17,11,16], backgroundColor: 'rgba(63,185,80,0.8)' },
+        { label: 'Negative', data: [4,1,4,2,5,5,3,8], backgroundColor: 'rgba(248,81,73,0.8)' },
+        { label: 'Neutral', data: [5,5,1,5,0,1,5,5], backgroundColor: 'rgba(139,148,158,0.5)' },
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'top', labels: { usePointStyle: true, padding: 14, font: { size: 11 } } } },
+      scales: { x: { stacked: true }, y: { stacked: true } }
+    }
+  });
+
+  new Chart(document.getElementById('negCategoryChart'), {
+    type: 'bar',
+    indexAxis: 'y',
+    data: {
+      labels: ['Customer Service','Account Issues','General','Wait Times','Fees & Charges','Fraud & Security','ATM & Branch'],
+      datasets: [{ data: [38, 14, 6, 5, 4, 3, 2], backgroundColor: 'rgba(248,81,73,0.7)', borderRadius: 4 }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { x: { grid: { color: 'rgba(48,54,61,0.5)' } }, y: { grid: { display: false } } }
+    }
+  });
+
+  // Staff sentiment
+  new Chart(document.getElementById('staffSentimentChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Positive staff', 'Negative staff'],
+      datasets: [{ data: [62, 34], backgroundColor: ['#3fb950', '#f85149'], borderWidth: 0 }]
+    },
+    options: {
+      responsive: true, cutout: '60%',
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 14 } } }
+    }
   });
 }
 
-/* ====== TABLE ====== */
-function renderTable(rows){
-  const tbody = el('tbody');
-  tbody.innerHTML = '';
+// ============================================================
+// BRANCH PAGE
+// ============================================================
+function renderBranches() {
+  const branchData = [
+    { addr: '120 Hugh J. Grant Cir, Bronx', count: 3, avg: 1.0, neg: 3 },
+    { addr: '1395 Northern Blvd, Manhasset', count: 3, avg: 1.0, neg: 2 },
+    { addr: '78-01 37th Ave, Jackson Heights', count: 3, avg: 2.33, neg: 2 },
+    { addr: '1321 Kings Hwy, Brooklyn', count: 3, avg: 2.33, neg: 1 },
+    { addr: '370 E 149th St, Bronx', count: 5, avg: 2.6, neg: 2 },
+    { addr: '7415 5th Ave, Brooklyn', count: 4, avg: 2.75, neg: 2 },
+    { addr: '278 8th Ave, New York', count: 4, avg: 3.75, neg: 0 },
+    { addr: '5408 5th Ave, Brooklyn', count: 6, avg: 4.5, neg: 0 },
+    { addr: '1000 Merchants Concourse, Westbury', count: 3, avg: 5.0, neg: 0 },
+  ];
 
-  rows.forEach(r=>{
-    const tr = document.createElement('tr');
-    if (r.is_urgent) tr.classList.add('row-urgent');
+  if (!document.getElementById('branchChart').dataset.rendered) {
+    document.getElementById('branchChart').dataset.rendered = '1';
+    new Chart(document.getElementById('branchChart'), {
+      type: 'bar',
+      data: {
+        labels: branchData.map(b => b.addr.split(',')[0]),
+        datasets: [{
+          label: 'Avg Rating',
+          data: branchData.map(b => b.avg),
+          backgroundColor: branchData.map(b => b.avg < 2 ? '#f85149' : b.avg < 3.5 ? '#e3b341' : '#3fb950'),
+          borderRadius: 4,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false } },
+          y: { min: 0, max: 5, grid: { color: 'rgba(48,54,61,0.5)' } }
+        }
+      }
+    });
+  }
 
-    tr.innerHTML = `
-      <td>${formatDate(r.review_date)}</td>
-      <td>${r.source || ''}</td>
-      <td>${r.author || ''}</td>
-      <td>${r.rating ?? ''}</td>
-      <td>${badgeSent(r.sentiment)}</td>
-      <td>${r.category || ''}</td>
-      <td>${r.is_urgent ? '<span class="badge badge-urgent">URGENT</span>' : ''}</td>
-      <td>${r.ai_summary || ''}</td>
-      <td>${r.review_text || ''}</td>
-    `;
-    tbody.appendChild(tr);
+  const tbody = document.getElementById('branch-tbody');
+  tbody.innerHTML = branchData.map(b => {
+    const color = b.avg < 2 ? 'var(--red)' : b.avg < 3.5 ? 'var(--yellow)' : 'var(--green)';
+    const status = b.avg < 2 ? '<span style="color:var(--red)"><i class="bi bi-exclamation-circle-fill"></i> Critical</span>' :
+      b.avg < 3.5 ? '<span style="color:var(--yellow)"><i class="bi bi-dash-circle"></i> Monitor</span>' :
+      '<span style="color:var(--green)"><i class="bi bi-check-circle"></i> Good</span>';
+    return `<tr>
+      <td style="font-size:13px;">${b.addr}</td>
+      <td>${b.count}</td>
+      <td><span style="color:${color};font-weight:600;">★ ${b.avg.toFixed(1)}</span></td>
+      <td>${b.neg > 0 ? `<span style="color:var(--red);">${b.neg}</span>` : '<span style="color:var(--muted)">0</span>'}</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ============================================================
+// REVIEWS PAGE
+// ============================================================
+let reviewFilter = 'all';
+let reviewsShown = 15;
+let reviewsInitialized = false;
+
+function setFilter(val) {
+  reviewFilter = val;
+  reviewsShown = 15;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  renderReviews();
+}
+
+function getFilteredReviews() {
+  const search = (document.getElementById('review-search')?.value || '').toLowerCase();
+  return REVIEWS.filter(r => {
+    const matchFilter = reviewFilter === 'all' ||
+      r.sentiment === reviewFilter ||
+      r.source === reviewFilter;
+    const matchSearch = !search ||
+      (r.review_text && r.review_text.toLowerCase().includes(search)) ||
+      (r.author && r.author.toLowerCase().includes(search)) ||
+      (r.category && r.category.toLowerCase().includes(search)) ||
+      (r.topics && r.topics.join(' ').toLowerCase().includes(search));
+    return matchFilter && matchSearch;
+  }).sort((a,b) => (b.review_date||'').localeCompare(a.review_date||''));
+}
+
+function renderStarStr(rating) {
+  if (!rating) return '';
+  const full = Math.round(rating);
+  return '★'.repeat(full) + '☆'.repeat(5 - full);
+}
+
+function srcBadge(src) {
+  const map = { 'Google Maps': 'src-google bi-map', 'WalletHub': 'src-wallethub bi-shield-check', 'Trustpilot': 'src-trustpilot bi-star-half', 'Facebook': 'src-facebook bi-facebook' };
+  const cls = map[src] || 'src-google bi-chat';
+  const [srcCls, icon] = cls.split(' ');
+  return `<span class="source-badge ${srcCls}"><i class="bi ${icon}"></i> ${src}</span>`;
+}
+
+function renderReviewCard(r) {
+  const sentTag = `<span class="tag tag-${r.sentiment}">${r.sentiment}</span>`;
+  const urgTag = r.is_urgent ? `<span class="tag tag-urgent"><i class="bi bi-exclamation-triangle-fill"></i> Urgent</span>` : '';
+  const topicTags = (r.topics || []).slice(0,4).map(t => `<span class="tag tag-topic">${t}</span>`).join('');
+  const starsHtml = r.rating ? `<span class="stars">${renderStarStr(r.rating)}</span> <span style="font-size:11px;color:var(--muted)">${r.rating}/5</span>` : '';
+  const summaryHtml = r.ai_summary ? `<div class="ai-summary-text"><i class="bi bi-cpu" style="margin-right:4px;"></i>${r.ai_summary}</div>` : '';
+  const staffHtml = r.staff_mentioned ? `<span class="tag tag-topic"><i class="bi bi-person"></i> ${r.staff_mentioned}</span>` : '';
+
+  return `<div class="review-item ${r.is_urgent ? 'urgent' : ''}">
+    <div class="review-header">
+      <div>
+        <div class="review-author">${r.author || 'Anonymous'}</div>
+        <div class="review-meta">${r.review_date || ''} · ${r.branch_address || r.branch_name || 'No branch'}</div>
+        ${starsHtml ? `<div style="margin-top:3px;">${starsHtml}</div>` : ''}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;">
+        ${srcBadge(r.source)}
+        ${sentTag}
+        ${urgTag}
+      </div>
+    </div>
+    ${r.review_text ? `<div class="review-text">${r.review_text.length > 280 ? r.review_text.slice(0,280) + '…' : r.review_text}</div>` : ''}
+    ${summaryHtml}
+    <div class="review-tags" style="margin-top:8px;">${topicTags}${staffHtml}</div>
+  </div>`;
+}
+
+function renderReviews() {
+  const filtered = getFilteredReviews();
+  const shown = filtered.slice(0, reviewsShown);
+  document.getElementById('review-count').textContent = `Showing ${shown.length} of ${filtered.length} reviews`;
+  document.getElementById('reviews-container').innerHTML = shown.map(renderReviewCard).join('');
+  const btn = document.getElementById('load-more-btn');
+  btn.style.display = filtered.length > reviewsShown ? 'block' : 'none';
+}
+
+function loadMoreReviews() {
+  reviewsShown += 15;
+  renderReviews();
+}
+
+function initReviews() {
+  reviewsInitialized = true;
+  renderReviews();
+}
+
+// ============================================================
+// URGENT PAGE
+// ============================================================
+function renderUrgent() {
+  const urgent = REVIEWS.filter(r => r.is_urgent).sort((a,b) => (b.review_date||'').localeCompare(a.review_date||''));
+  const reasonLabels = { discrimination: 'Discrimination', money_deposited_wrong_account: 'Wrong Deposit', fraud_mention: 'Fraud', account_frozen: 'Account Frozen' };
+  document.getElementById('urgent-container').innerHTML = urgent.map(r => `
+    <div class="urgent-card">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;gap:10px;">
+        <div>
+          <div class="review-author">${r.author || 'Anonymous'}</div>
+          <div class="review-meta">${r.review_date || ''} · ${r.branch_address || r.branch_name || 'No branch'} · ${r.source}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;">
+          <span class="priority-dot p${r.response_priority}" style="width:10px;height:10px;display:inline-block;"></span>
+          <span style="font-size:11px;color:var(--red);">Priority ${r.response_priority}</span>
+        </div>
+      </div>
+      ${r.urgency_reason ? `<div style="margin-bottom:8px;"><span class="urgent-reason-badge">${reasonLabels[r.urgency_reason] || r.urgency_reason}</span></div>` : ''}
+      <div class="review-text" style="margin-bottom:8px;">${r.review_text || ''}</div>
+      ${r.ai_summary ? `<div class="ai-summary-text"><i class="bi bi-cpu" style="margin-right:4px;"></i>${r.ai_summary}</div>` : ''}
+      ${r.review_url ? `<div style="margin-top:10px;"><a href="${r.review_url}" target="_blank" style="font-size:12px;color:var(--accent2);"><i class="bi bi-box-arrow-up-right"></i> View original</a></div>` : ''}
+    </div>
+  `).join('');
+
+  // Sidebar badge
+  const badge = document.getElementById('sidebar-urgent-badge');
+  if (badge) badge.innerHTML = `<span style="background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:700;">${urgent.length}</span>`;
+}
+
+// ============================================================
+// STAFF PAGE
+// ============================================================
+function renderStaff() {
+  const staffCounts = {};
+  const staffSentiment = {};
+  REVIEWS.forEach(r => {
+    if (r.staff_mentioned && r.staff_mentioned.length > 2 && !['manager','tellers','teller','entire staff','branch manager'].includes(r.staff_mentioned.toLowerCase())) {
+      staffCounts[r.staff_mentioned] = (staffCounts[r.staff_mentioned] || 0) + 1;
+      if (r.staff_sentiment) staffSentiment[r.staff_mentioned] = r.staff_sentiment;
+    }
+  });
+  const sorted = Object.entries(staffCounts).sort((a,b) => b[1]-a[1]).slice(0,12);
+  document.getElementById('staff-mentions-list').innerHTML = sorted.map(([name, count]) => {
+    const sent = staffSentiment[name];
+    const sentColor = sent === 'positive' ? 'var(--green)' : sent === 'negative' ? 'var(--red)' : 'var(--muted)';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);">
+      <div>
+        <span style="font-size:13px;font-weight:500;">${name}</span>
+        ${sent ? `<span style="font-size:10px;margin-left:8px;color:${sentColor};">${sent}</span>` : ''}
+      </div>
+      <span style="font-size:12px;color:var(--muted);">${count} mention${count > 1 ? 's' : ''}</span>
+    </div>`;
+  }).join('');
+
+  const withStaff = REVIEWS.filter(r => r.staff_mentioned && r.review_text).slice(0,5);
+  document.getElementById('staff-review-samples').innerHTML = withStaff.map(r => `
+    <div style="border-bottom:1px solid var(--border);padding:10px 0;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        <span style="font-size:12px;font-weight:600;color:var(--teal);">${r.staff_mentioned}</span>
+        <span style="font-size:11px;color:var(--muted);">${r.review_date}</span>
+      </div>
+      <div style="font-size:12px;color:#cdd9e5;line-height:1.6;">${r.review_text.slice(0,160)}${r.review_text.length > 160 ? '…' : ''}</div>
+    </div>
+  `).join('');
+}
+
+// ============================================================
+// URGENT INDICATOR in topbar
+// ============================================================
+document.getElementById('urgent-indicator').innerHTML = `
+  <div class="badge-urgent" onclick="showPage('urgent')" style="cursor:pointer;">
+    <i class="bi bi-exclamation-triangle-fill"></i> 11 Urgent
+  </div>`;
+
+
+// ============================================================
+// DYNAMIC DASHBOARD METRICS + CHARTS
+// ============================================================
+function destroyChart(id) {
+  if (charts[id]) {
+    charts[id].destroy();
+    delete charts[id];
+  }
+}
+
+function safePct(part, total) {
+  return total ? Math.round((part / total) * 100) : 0;
+}
+
+function countBy(items, keyFn) {
+  return items.reduce((acc, item) => {
+    const key = keyFn(item) || "Unknown";
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+}
+
+function avgRating(items) {
+  const rated = items.filter(r => Number.isFinite(r.rating));
+  if (!rated.length) return 0;
+  return rated.reduce((sum, r) => sum + r.rating, 0) / rated.length;
+}
+
+function monthKey(dateValue) {
+  if (!dateValue) return "Unknown";
+  const d = new Date(dateValue);
+  if (Number.isNaN(d.getTime())) return "Unknown";
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthLabel(key) {
+  if (key === "Unknown") return key;
+  const [y, m] = key.split("-");
+  const d = new Date(Number(y), Number(m) - 1, 1);
+  return d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+}
+
+function latestMonths(n = 8) {
+  const keys = [...new Set(REVIEWS.map(r => monthKey(r.review_date)).filter(k => k !== "Unknown"))].sort();
+  return keys.slice(-n);
+}
+
+function setText(selector, value) {
+  const el = document.querySelector(selector);
+  if (el) el.textContent = value;
+}
+
+function applyDashboardMetrics() {
+  const total = REVIEWS.length;
+  const positive = REVIEWS.filter(r => r.sentiment === "positive").length;
+  const negative = REVIEWS.filter(r => r.sentiment === "negative").length;
+  const neutral = REVIEWS.filter(r => r.sentiment === "neutral").length;
+  const urgent = REVIEWS.filter(r => r.is_urgent).length;
+  const ratedCount = REVIEWS.filter(r => Number.isFinite(r.rating)).length;
+  const avg = avgRating(REVIEWS);
+  const sources = Object.keys(countBy(REVIEWS, r => r.source)).length;
+  const lastDate = REVIEWS.map(r => r.review_date).filter(Boolean).sort().pop();
+  const lastUpdate = lastDate ? new Date(lastDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "No data";
+
+  const overviewValues = document.querySelectorAll("#page-overview .stat-card .stat-value");
+  if (overviewValues[0]) overviewValues[0].textContent = total;
+  if (overviewValues[1]) overviewValues[1].textContent = avg ? avg.toFixed(2) : "N/A";
+  if (overviewValues[2]) overviewValues[2].textContent = `${safePct(positive, total)}%`;
+  if (overviewValues[3]) overviewValues[3].textContent = urgent;
+
+  const overviewSubs = document.querySelectorAll("#page-overview .stat-card .stat-sub");
+  if (overviewSubs[0]) overviewSubs[0].textContent = `${sources} source${sources === 1 ? "" : "s"}`;
+  if (overviewSubs[1]) overviewSubs[1].textContent = `Out of 5 · ${ratedCount} rated review${ratedCount === 1 ? "" : "s"}`;
+  if (overviewSubs[2]) overviewSubs[2].textContent = `${positive} positive · ${negative} negative · ${neutral} neutral`;
+  if (overviewSubs[3]) overviewSubs[3].textContent = `Requiring immediate attention`;
+
+  const sentimentValues = document.querySelectorAll("#page-sentiment .stat-card .stat-value");
+  if (sentimentValues[0]) sentimentValues[0].textContent = positive;
+  if (sentimentValues[1]) sentimentValues[1].textContent = negative;
+  if (sentimentValues[2]) sentimentValues[2].textContent = neutral;
+
+  const sentimentSubs = document.querySelectorAll("#page-sentiment .stat-card .stat-sub");
+  if (sentimentSubs[0]) sentimentSubs[0].textContent = `${safePct(positive, total)}% of all reviews`;
+  if (sentimentSubs[1]) sentimentSubs[1].textContent = `${safePct(negative, total)}% of all reviews`;
+  if (sentimentSubs[2]) sentimentSubs[2].textContent = `${safePct(neutral, total)}% of all reviews`;
+
+  const footer = document.querySelector(".sidebar-footer");
+  if (footer) footer.innerHTML = `${total} reviews · ${sources} source${sources === 1 ? "" : "s"}<br>Last update: ${lastUpdate}`;
+
+  document.getElementById("urgent-indicator").innerHTML = `
+    <div class="badge-urgent" onclick="showPage('urgent')" style="cursor:pointer;">
+      <i class="bi bi-exclamation-triangle-fill"></i> ${urgent} Urgent
+    </div>`;
+}
+
+function initOverviewCharts() {
+  const sources = Object.keys(countBy(REVIEWS, r => r.source)).sort();
+  const sentiments = ["positive", "neutral", "negative"];
+  const sentimentColors = {
+    positive: "rgba(63,185,80,0.8)",
+    neutral: "rgba(139,148,158,0.6)",
+    negative: "rgba(248,81,73,0.8)"
+  };
+
+  destroyChart("sentimentBySourceChart");
+  charts.sentimentBySourceChart = new Chart(document.getElementById("sentimentBySourceChart"), {
+    type: "bar",
+    data: {
+      labels: sources,
+      datasets: sentiments.map(s => ({
+        label: s.charAt(0).toUpperCase() + s.slice(1),
+        data: sources.map(src => REVIEWS.filter(r => r.source === src && r.sentiment === s).length),
+        backgroundColor: sentimentColors[s]
+      }))
+    },
+    options: { responsive: true, plugins: { legend: { position: "top", labels: { usePointStyle: true, pointStyleWidth: 8, padding: 16, font: { size: 11 } } } }, scales: { x: { stacked: true }, y: { stacked: true } } }
+  });
+
+  const ratingCounts = countBy(REVIEWS.filter(r => Number.isFinite(r.rating)), r => Math.round(r.rating));
+  const ratedTotal = Object.values(ratingCounts).reduce((a,b) => a + b, 0);
+  const colors = { 5: "#3fb950", 4: "#39c5cf", 3: "#e3b341", 2: "#d29922", 1: "#f85149" };
+  document.getElementById("rating-bars").innerHTML = [5,4,3,2,1].map(s => {
+    const count = ratingCounts[s] || 0;
+    const pct = safePct(count, ratedTotal);
+    return `<div class="rating-bar-container">
+      <div class="rating-bar-label">${s}</div>
+      <div class="rating-bar-track"><div class="rating-bar-fill" style="width:${pct}%;background:${colors[s]};"></div></div>
+      <div class="rating-bar-count">${count}</div>
+    </div>`;
+  }).join("");
+
+  const priorities = [1,2,3,4,5];
+  const priorityCounts = countBy(REVIEWS, r => Number(r.response_priority || 1));
+  destroyChart("priorityChart");
+  charts.priorityChart = new Chart(document.getElementById("priorityChart"), {
+    type: "doughnut",
+    data: { labels: ["P1 Positive", "P2 Low", "P3 Medium", "P4 High", "P5 Urgent"], datasets: [{ data: priorities.map(p => priorityCounts[p] || 0), backgroundColor: ["#3fb950","#39c5cf","#e3b341","#d29922","#f85149"], borderWidth: 0, hoverOffset: 6 }] },
+    options: { responsive: true, cutout: "65%", plugins: { legend: { display: false } } }
+  });
+
+  const months = latestMonths(8);
+  destroyChart("trendChart");
+  charts.trendChart = new Chart(document.getElementById("trendChart"), {
+    type: "line",
+    data: {
+      labels: months.map(monthLabel),
+      datasets: sentiments.map(s => ({
+        label: s.charAt(0).toUpperCase() + s.slice(1),
+        data: months.map(m => REVIEWS.filter(r => monthKey(r.review_date) === m && r.sentiment === s).length),
+        borderColor: s === "positive" ? "#3fb950" : s === "negative" ? "#f85149" : "#8b949e",
+        backgroundColor: s === "positive" ? "rgba(63,185,80,0.1)" : s === "negative" ? "rgba(248,81,73,0.1)" : "rgba(139,148,158,0.05)",
+        tension: 0.4,
+        fill: true,
+        pointRadius: 3
+      }))
+    },
+    options: { responsive: true, plugins: { legend: { position: "top", labels: { usePointStyle: true, padding: 16, font: { size: 11 } } } } }
+  });
+
+  const categoryCounts = Object.entries(countBy(REVIEWS, r => r.category)).sort((a,b) => b[1] - a[1]).slice(0,8);
+  destroyChart("categoryChart");
+  charts.categoryChart = new Chart(document.getElementById("categoryChart"), {
+    type: "doughnut",
+    data: { labels: categoryCounts.map(x => x[0]), datasets: [{ data: categoryCounts.map(x => x[1]), backgroundColor: ["#1f6feb","#39c5cf","#f85149","#e3b341","#bc8cff","#d29922","#3fb950","#8b949e"], borderWidth: 0, hoverOffset: 4 }] },
+    options: { responsive: true, cutout: "55%", plugins: { legend: { position: "right", labels: { font: { size: 10 }, padding: 8, boxWidth: 10 } } } }
+  });
+
+  const topics = {};
+  REVIEWS.forEach(r => (r.topics || []).forEach(t => { topics[t] = (topics[t] || 0) + 1; }));
+  const topTopics = Object.entries(topics).sort((a,b) => b[1] - a[1]).slice(0,20);
+  document.getElementById("topic-pills").innerHTML = topTopics.map(([t,c]) => `<span class="topic-pill"><span>${t}</span><span class="pill-count">${c}</span></span>`).join("") || `<span style="color:var(--muted);font-size:12px;">No topics yet</span>`;
+
+  const tbody = document.querySelector("#page-overview .data-table tbody");
+  if (tbody) {
+    tbody.innerHTML = sources.map(src => {
+      const rows = REVIEWS.filter(r => r.source === src);
+      const pos = rows.filter(r => r.sentiment === "positive").length;
+      const urgent = rows.filter(r => r.is_urgent).length;
+      const avg = avgRating(rows);
+      return `<tr>
+        <td>${srcBadge(src)}</td>
+        <td>${rows.length}</td>
+        <td><span style="color:var(--yellow)">${avg ? `★ ${avg.toFixed(2)}` : "N/A"}</span></td>
+        <td><span style="color:var(--green)">${safePct(pos, rows.length)}% pos</span></td>
+        <td><span style="color:var(--red)">${urgent}</span></td>
+      </tr>`;
+    }).join("");
+  }
+}
+
+function initSentimentCharts() {
+  const months = latestMonths(8);
+  const sentiments = ["positive", "negative", "neutral"];
+
+  destroyChart("sentimentTrendChart");
+  charts.sentimentTrendChart = new Chart(document.getElementById("sentimentTrendChart"), {
+    type: "bar",
+    data: {
+      labels: months.map(monthLabel),
+      datasets: sentiments.map(s => ({
+        label: s.charAt(0).toUpperCase() + s.slice(1),
+        data: months.map(m => REVIEWS.filter(r => monthKey(r.review_date) === m && r.sentiment === s).length),
+        backgroundColor: s === "positive" ? "rgba(63,185,80,0.8)" : s === "negative" ? "rgba(248,81,73,0.8)" : "rgba(139,148,158,0.5)"
+      }))
+    },
+    options: { responsive: true, plugins: { legend: { position: "top", labels: { usePointStyle: true, padding: 14, font: { size: 11 } } } }, scales: { x: { stacked: true }, y: { stacked: true } } }
+  });
+
+  const negCategoryCounts = Object.entries(countBy(REVIEWS.filter(r => r.sentiment === "negative"), r => r.category)).sort((a,b) => b[1] - a[1]).slice(0,10);
+  destroyChart("negCategoryChart");
+  charts.negCategoryChart = new Chart(document.getElementById("negCategoryChart"), {
+    type: "bar",
+    data: { labels: negCategoryCounts.map(x => x[0]), datasets: [{ data: negCategoryCounts.map(x => x[1]), backgroundColor: "rgba(248,81,73,0.7)", borderRadius: 4 }] },
+    options: { indexAxis: "y", responsive: true, plugins: { legend: { display: false } } }
+  });
+
+  const urgentReasons = Object.entries(countBy(REVIEWS.filter(r => r.is_urgent), r => r.urgency_reason || "Urgent")).sort((a,b) => b[1] - a[1]);
+  const reasonBox = document.querySelector("#page-sentiment .row.g-3:last-child .col-md-6:first-child .chart-card > div[style*='margin-top']");
+  if (reasonBox) {
+    reasonBox.innerHTML = urgentReasons.map(([reason, count]) => `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
+      <span style="color:var(--muted);font-size:13px;"><i class="bi bi-exclamation-circle" style="color:var(--red);margin-right:6px;"></i>${String(reason).replaceAll("_", " ")}</span>
+      <span style="color:var(--red);font-weight:600;">${count} case${count === 1 ? "" : "s"}</span>
+    </div>`).join("") || `<span style="color:var(--muted);font-size:12px;">No urgent cases</span>`;
+  }
+
+  const staffRows = REVIEWS.filter(r => r.staff_mentioned && r.staff_sentiment);
+  const staffPositive = staffRows.filter(r => r.staff_sentiment === "positive").length;
+  const staffNegative = staffRows.filter(r => r.staff_sentiment === "negative").length;
+  destroyChart("staffSentimentChart");
+  charts.staffSentimentChart = new Chart(document.getElementById("staffSentimentChart"), {
+    type: "doughnut",
+    data: { labels: ["Positive staff", "Negative staff"], datasets: [{ data: [staffPositive, staffNegative], backgroundColor: ["#3fb950", "#f85149"], borderWidth: 0 }] },
+    options: { responsive: true, cutout: "60%", plugins: { legend: { position: "bottom", labels: { font: { size: 11 }, padding: 14 } } } }
   });
 }
 
-/* ====== INIT ====== */
-load();
+function renderBranches() {
+  const groups = {};
+  REVIEWS.forEach(r => {
+    const key = r.branch_address || r.branch_name;
+    if (!key) return;
+    groups[key] = groups[key] || [];
+    groups[key].push(r);
+  });
+  const branchData = Object.entries(groups).map(([addr, rows]) => ({
+    addr,
+    count: rows.length,
+    avg: avgRating(rows),
+    neg: rows.filter(r => r.sentiment === "negative").length
+  })).filter(b => b.count >= 1).sort((a,b) => a.avg - b.avg).slice(0,20);
+
+  destroyChart("branchChart");
+  charts.branchChart = new Chart(document.getElementById("branchChart"), {
+    type: "bar",
+    data: {
+      labels: branchData.map(b => b.addr.split(",")[0]),
+      datasets: [{ label: "Avg Rating", data: branchData.map(b => Number(b.avg.toFixed(2))), backgroundColor: branchData.map(b => b.avg < 2 ? "#f85149" : b.avg < 3.5 ? "#e3b341" : "#3fb950"), borderRadius: 4 }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { min: 0, max: 5 } } }
+  });
+
+  const tbody = document.getElementById("branch-tbody");
+  tbody.innerHTML = branchData.map(b => {
+    const color = b.avg < 2 ? "var(--red)" : b.avg < 3.5 ? "var(--yellow)" : "var(--green)";
+    const status = b.avg < 2 ? `<span style="color:var(--red)"><i class="bi bi-exclamation-circle-fill"></i> Critical</span>` : b.avg < 3.5 ? `<span style="color:var(--yellow)"><i class="bi bi-dash-circle"></i> Monitor</span>` : `<span style="color:var(--green)"><i class="bi bi-check-circle"></i> Good</span>`;
+    return `<tr>
+      <td style="font-size:13px;">${b.addr}</td>
+      <td>${b.count}</td>
+      <td><span style="color:${color};font-weight:600;">★ ${b.avg ? b.avg.toFixed(1) : "N/A"}</span></td>
+      <td>${b.neg > 0 ? `<span style="color:var(--red);">${b.neg}</span>` : `<span style="color:var(--muted)">0</span>`}</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="5" style="color:var(--muted);">No branch data found</td></tr>`;
+}
+
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener("DOMContentLoaded", () => {
+  loadReviews();
+});
 </script>
-
 </body>
 </html>
