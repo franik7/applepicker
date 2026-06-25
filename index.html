@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Apple Bank — Voice of Customer Intelligence</title>
 <link rel="icon" type="image/png" href="/assets/favicon.png">
-<script type="text/javascript" nonce="c3c555acbd6548b5b037e3f3e2c" src="//local.adguard.org?ts=1777580559685&amp;type=content-script&amp;dmn=chatgpt.com&amp;url=https%3A%2F%2Fchatgpt.com%2Fbackend-api%2Festuary%2Fcontent%3Fid%3Dfile_0000000091d071fd93b91535bac74289%26ts%3D493772%26p%3Dfs%26cid%3D1%26sig%3D482aab50bbed4d3d58e754049bf596241527187bdbc8b67bd0eea3887be14d42%26v%3D0&amp;app=chrome.exe&amp;css=2&amp;js=1&amp;rel=1&amp;rji=1&amp;sbe=1&amp;stealth=1&amp;st-loc&amp;st-dnt"></script><script type="text/javascript" nonce="c3c555acbd6548b5b037e3f3e2c" src="//local.adguard.org?ts=1777580559685&amp;name=AdGuard%20Extra&amp;name=AdGuard%20Popup%20Blocker&amp;type=user-script"></script><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
@@ -426,9 +426,40 @@ body {
   border-radius: 6px;
   border-left: 2px solid var(--accent2);
 }
+
+/* ---- Loading overlay ---- */
+#loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity .35s ease;
+}
+#loading-overlay.hidden { opacity: 0; pointer-events: none; }
+#loading-overlay .loader-box { text-align: center; color: var(--muted); font-size: 13px; }
+#loading-overlay .spinner {
+  width: 34px; height: 34px;
+  margin: 0 auto 14px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent2);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
+
+<!-- Loading overlay (prevents stale hardcoded numbers flashing before Supabase data loads) -->
+<div id="loading-overlay">
+  <div class="loader-box">
+    <div class="spinner"></div>
+    Loading latest reviews…
+  </div>
+</div>
 
 <!-- Sidebar -->
 <nav id="sidebar">
@@ -471,8 +502,8 @@ body {
     </div>
   </div>
   <div class="sidebar-footer">
-    253 reviews · 4 sources<br>
-    Last update: Apr 30, 2026
+    Loading…<br>
+    Last update: —
   </div>
 </nav>
 
@@ -494,31 +525,31 @@ body {
         <div class="stat-card">
           <div class="stat-icon"><i class="bi bi-chat-quote"></i></div>
           <div class="stat-label">Total Reviews</div>
-          <div class="stat-value" style="color:var(--text)">253</div>
-          <div class="stat-sub">Google Maps, WalletHub, Trustpilot, Facebook</div>
+          <div class="stat-value" style="color:var(--text)">—</div>
+          <div class="stat-sub">&nbsp;</div>
         </div>
       </div>
       <div class="col-md-3 col-6">
         <div class="stat-card">
           <div class="stat-icon"><i class="bi bi-star"></i></div>
           <div class="stat-label">Avg Rating</div>
-          <div class="stat-value" style="color:var(--yellow)">3.73</div>
-          <div class="stat-sub">Out of 5 · 251 rated reviews</div>
+          <div class="stat-value" style="color:var(--yellow)">—</div>
+          <div class="stat-sub">&nbsp;</div>
         </div>
       </div>
       <div class="col-md-3 col-6">
         <div class="stat-card">
           <div class="stat-icon"><i class="bi bi-emoji-smile"></i></div>
           <div class="stat-label">Positive Rate</div>
-          <div class="stat-value" style="color:var(--green)">48%</div>
-          <div class="stat-sub">122 positive · 66 negative · 65 neutral</div>
+          <div class="stat-value" style="color:var(--green)">—</div>
+          <div class="stat-sub">&nbsp;</div>
         </div>
       </div>
       <div class="col-md-3 col-6">
         <div class="stat-card">
           <div class="stat-icon"><i class="bi bi-exclamation-circle"></i></div>
           <div class="stat-label">Urgent Cases</div>
-          <div class="stat-value" style="color:var(--red)">11</div>
+          <div class="stat-value" style="color:var(--red)">—</div>
           <div class="stat-sub">Requiring immediate attention</div>
         </div>
       </div>
@@ -536,7 +567,7 @@ body {
       <div class="col-md-4">
         <div class="chart-card h-100">
           <div class="card-title">Rating Distribution</div>
-          <div class="card-sub">Star breakdown across 251 reviews</div>
+          <div class="card-sub">Star breakdown across rated reviews</div>
           <div id="rating-bars" style="margin-top:12px;"></div>
         </div>
       </div>
@@ -547,11 +578,11 @@ body {
           <canvas id="priorityChart" height="200"></canvas>
           <div style="margin-top:10px;">
             <div style="font-size:11px;color:var(--muted);">
-              <span class="priority-dot p5"></span>P5 Urgent (11) &nbsp;
-              <span class="priority-dot p4"></span>P4 High (35)<br>
-              <span class="priority-dot p3"></span>P3 Medium (20) &nbsp;
-              <span class="priority-dot p2"></span>P2 Low (13)<br>
-              <span class="priority-dot p1"></span>P1 Positive (174)
+              <span class="priority-dot p5"></span>P5 Urgent &nbsp;
+              <span class="priority-dot p4"></span>P4 High<br>
+              <span class="priority-dot p3"></span>P3 Medium &nbsp;
+              <span class="priority-dot p2"></span>P2 Low<br>
+              <span class="priority-dot p1"></span>P1 Positive
             </div>
           </div>
         </div>
@@ -599,36 +630,7 @@ body {
                 <th>Urgent</th>
               </tr>
             </thead>
-            <tbody>
-              <tr>
-                <td><span class="source-badge src-google"><i class="bi bi-map"></i> Google Maps</span></td>
-                <td>225</td>
-                <td><span style="color:var(--yellow)">★ 3.91</span></td>
-                <td><span style="color:var(--green)">51% pos</span></td>
-                <td><span style="color:var(--red)">8</span></td>
-              </tr>
-              <tr>
-                <td><span class="source-badge src-wallethub"><i class="bi bi-shield-check"></i> WalletHub</span></td>
-                <td>15</td>
-                <td><span style="color:var(--orange)">★ 2.53</span></td>
-                <td><span style="color:var(--red)">67% neg</span></td>
-                <td><span style="color:var(--red)">2</span></td>
-              </tr>
-              <tr>
-                <td><span class="source-badge src-trustpilot"><i class="bi bi-star-half"></i> Trustpilot</span></td>
-                <td>11</td>
-                <td><span style="color:var(--red)">★ 1.73</span></td>
-                <td><span style="color:var(--red)">82% neg</span></td>
-                <td><span style="color:var(--red)">1</span></td>
-              </tr>
-              <tr>
-                <td><span class="source-badge src-facebook"><i class="bi bi-facebook"></i> Facebook</span></td>
-                <td>2</td>
-                <td><span style="color:var(--muted)">N/A</span></td>
-                <td><span style="color:var(--red)">100% neg</span></td>
-                <td><span style="color:var(--muted)">0</span></td>
-              </tr>
-            </tbody>
+            <tbody></tbody>
           </table>
         </div>
       </div>
@@ -641,22 +643,22 @@ body {
       <div class="col-md-4 col-6">
         <div class="stat-card">
           <div class="stat-label">Positive Reviews</div>
-          <div class="stat-value" style="color:var(--green)">122</div>
-          <div class="stat-sub">48.2% of all reviews</div>
+          <div class="stat-value" style="color:var(--green)">—</div>
+          <div class="stat-sub">&nbsp;</div>
         </div>
       </div>
       <div class="col-md-4 col-6">
         <div class="stat-card">
           <div class="stat-label">Negative Reviews</div>
-          <div class="stat-value" style="color:var(--red)">66</div>
-          <div class="stat-sub">26.1% of all reviews</div>
+          <div class="stat-value" style="color:var(--red)">—</div>
+          <div class="stat-sub">&nbsp;</div>
         </div>
       </div>
       <div class="col-md-4 col-6">
         <div class="stat-card">
           <div class="stat-label">Neutral Reviews</div>
-          <div class="stat-value" style="color:var(--muted)">65</div>
-          <div class="stat-sub">25.7% of all reviews</div>
+          <div class="stat-value" style="color:var(--muted)">—</div>
+          <div class="stat-sub">&nbsp;</div>
         </div>
       </div>
     </div>
@@ -680,25 +682,8 @@ body {
       <div class="col-md-6">
         <div class="chart-card">
           <div class="card-title">Urgency Breakdown</div>
-          <div class="card-sub">Reason classification for 11 urgent reviews</div>
-          <div style="margin-top:10px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
-              <span style="color:var(--muted);font-size:13px;"><i class="bi bi-shield-x" style="color:var(--red);margin-right:6px;"></i>Discrimination</span>
-              <span style="color:var(--red);font-weight:600;">5 cases</span>
-            </div>
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
-              <span style="color:var(--muted);font-size:13px;"><i class="bi bi-bank" style="color:var(--orange);margin-right:6px;"></i>Money Deposited Wrong Account</span>
-              <span style="color:var(--orange);font-weight:600;">3 cases</span>
-            </div>
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
-              <span style="color:var(--muted);font-size:13px;"><i class="bi bi-bug" style="color:var(--yellow);margin-right:6px;"></i>Fraud Mention</span>
-              <span style="color:var(--yellow);font-weight:600;">2 cases</span>
-            </div>
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;">
-              <span style="color:var(--muted);font-size:13px;"><i class="bi bi-lock" style="color:var(--purple);margin-right:6px;"></i>Account Frozen</span>
-              <span style="color:var(--purple);font-weight:600;">1 case</span>
-            </div>
-          </div>
+          <div class="card-sub">Reason classification for urgent reviews</div>
+          <div style="margin-top:10px;"></div>
         </div>
       </div>
       <div class="col-md-6">
@@ -714,7 +699,7 @@ body {
   <!-- ===== BRANCHES PAGE ===== -->
   <div id="page-branches" class="page">
     <div class="section-title">Branch Performance</div>
-    <div class="section-sub">Locations with 3+ reviews ranked by average rating</div>
+    <div class="section-sub">Locations with 1+ reviews ranked by average rating</div>
     <div class="chart-card mb-3">
       <canvas id="branchChart" height="300"></canvas>
     </div>
@@ -755,14 +740,14 @@ body {
   <!-- ===== URGENT PAGE ===== -->
   <div id="page-urgent" class="page">
     <div class="section-title" style="color:var(--red)"><i class="bi bi-exclamation-triangle-fill"></i> Urgent Reviews</div>
-    <div class="section-sub">11 reviews flagged for immediate attention — discrimination, fraud, wrong deposits, frozen accounts</div>
+    <div class="section-sub">Reviews flagged for immediate attention — discrimination, fraud, wrong deposits, frozen accounts</div>
     <div id="urgent-container"></div>
   </div>
 
   <!-- ===== STAFF PAGE ===== -->
   <div id="page-staff" class="page">
     <div class="section-title">Staff Mentions</div>
-    <div class="section-sub">96 reviews mention specific staff members by name or role</div>
+    <div class="section-sub">Reviews that mention specific staff members by name or role</div>
     <div class="row g-3 mb-3">
       <div class="col-md-6">
         <div class="chart-card">
@@ -855,17 +840,22 @@ async function loadReviews() {
     const msg = `Supabase load error: ${error.message}. Check table name, RLS policy, and column names.`;
     if (main) main.innerHTML = `<div class="urgent-card">${msg}</div>`;
     document.getElementById("urgent-indicator").innerHTML = `<span class="badge-urgent">Data error</span>`;
+    document.getElementById("loading-overlay").classList.add("hidden");
     return;
   }
 
   REVIEWS = (data || []).map(normalizeReview);
-  applyDashboardMetrics();
-  initOverviewCharts();
-  initSentimentCharts();
-  renderUrgent();
-  renderBranches();
-  renderStaff();
-  renderReviews();
+  try {
+    applyDashboardMetrics();
+    initOverviewCharts();
+    initSentimentCharts();
+    renderUrgent();
+    renderBranches();
+    renderStaff();
+    renderReviews();
+  } finally {
+    document.getElementById("loading-overlay").classList.add("hidden");
+  }
 }
 
 // ============================================================
@@ -903,201 +893,7 @@ const CHART_COLORS = {
 };
 
 // ============================================================
-// OVERVIEW CHARTS
-// ============================================================
-function initOverviewCharts() {
-  // Sentiment by source bar chart
-  new Chart(document.getElementById('sentimentBySourceChart'), {
-    type: 'bar',
-    data: {
-      labels: ['Google Maps', 'WalletHub', 'Trustpilot', 'Facebook'],
-      datasets: [
-        { label: 'Positive', data: [116, 5, 1, 0], backgroundColor: 'rgba(63,185,80,0.8)' },
-        { label: 'Neutral', data: [64, 0, 1, 0], backgroundColor: 'rgba(139,148,158,0.6)' },
-        { label: 'Negative', data: [45, 10, 9, 2], backgroundColor: 'rgba(248,81,73,0.8)' },
-      ]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { position: 'top', labels: { usePointStyle: true, pointStyleWidth: 8, padding: 16, font: { size: 11 } } } },
-      scales: {
-        x: { stacked: true, grid: { color: 'rgba(48,54,61,0.5)' } },
-        y: { stacked: true, grid: { color: 'rgba(48,54,61,0.5)' } }
-      }
-    }
-  });
-
-  // Rating bars
-  const ratingData = { 5: 156, 4: 10, 3: 13, 2: 5, 1: 67 };
-  const total = 251;
-  const colors = { 5: '#3fb950', 4: '#39c5cf', 3: '#e3b341', 2: '#d29922', 1: '#f85149' };
-  let html = '';
-  for (let s = 5; s >= 1; s--) {
-    const count = ratingData[s];
-    const pct = (count / total * 100).toFixed(0);
-    html += `<div class="rating-bar-container">
-      <div class="rating-bar-label">${s}</div>
-      <div class="rating-bar-track"><div class="rating-bar-fill" style="width:${pct}%;background:${colors[s]};"></div></div>
-      <div class="rating-bar-count">${count}</div>
-    </div>`;
-  }
-  document.getElementById('rating-bars').innerHTML = html;
-
-  // Priority donut
-  new Chart(document.getElementById('priorityChart'), {
-    type: 'doughnut',
-    data: {
-      labels: ['P1 Positive', 'P2 Low', 'P3 Medium', 'P4 High', 'P5 Urgent'],
-      datasets: [{ data: [174, 13, 20, 35, 11], backgroundColor: ['#3fb950','#39c5cf','#e3b341','#d29922','#f85149'], borderWidth: 0, hoverOffset: 6 }]
-    },
-    options: { responsive: true, cutout: '65%', plugins: { legend: { display: false } } }
-  });
-
-  // Trend chart
-  const months = ['Sep 25', 'Oct 25', 'Nov 25', 'Dec 25', 'Jan 26', 'Feb 26', 'Mar 26', 'Apr 26'];
-  new Chart(document.getElementById('trendChart'), {
-    type: 'line',
-    data: {
-      labels: months,
-      datasets: [
-        { label: 'Positive', data: [7,3,4,7,11,17,11,16], borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,0.1)', tension: 0.4, fill: true, pointRadius: 3 },
-        { label: 'Negative', data: [4,1,4,2,5,5,3,8], borderColor: '#f85149', backgroundColor: 'rgba(248,81,73,0.1)', tension: 0.4, fill: true, pointRadius: 3 },
-        { label: 'Neutral', data: [5,5,1,5,0,1,5,5], borderColor: '#8b949e', backgroundColor: 'rgba(139,148,158,0.05)', tension: 0.4, fill: true, pointRadius: 3 },
-      ]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { position: 'top', labels: { usePointStyle: true, padding: 16, font: { size: 11 } } } },
-      scales: { x: { grid: { color: 'rgba(48,54,61,0.5)' } }, y: { grid: { color: 'rgba(48,54,61,0.5)' } } }
-    }
-  });
-
-  // Category donut
-  new Chart(document.getElementById('categoryChart'), {
-    type: 'doughnut',
-    data: {
-      labels: ['Customer Service', 'General', 'Account Issues', 'Wait Times', 'Fees', 'Fraud & Security', 'ATM & Branch'],
-      datasets: [{ data: [123, 93, 17, 8, 4, 3, 3], backgroundColor: ['#1f6feb','#39c5cf','#f85149','#e3b341','#bc8cff','#d29922','#3fb950'], borderWidth: 0, hoverOffset: 4 }]
-    },
-    options: { responsive: true, cutout: '55%', plugins: { legend: { position: 'right', labels: { font: { size: 10 }, padding: 8, boxWidth: 10 } } } }
-  });
-
-  // Topics
-  const topics = [['friendly staff',40],['customer service',29],['helpful staff',18],['wait times',16],['excellent customer service',15],['poor customer service',11],['rude teller',10],['rude staff',9],['excellent service',6],['good customer service',5],['great customer service',5],['professional service',5],['knowledgeable staff',4],['account issues',4],['CD rates',4]];
-  const maxCount = topics[0][1];
-  document.getElementById('topic-pills').innerHTML = topics.map(([t, c]) =>
-    `<span class="topic-pill"><span>${t}</span><span class="pill-count">${c}</span></span>`
-  ).join('');
-}
-
-// ============================================================
-// SENTIMENT PAGE CHARTS
-// ============================================================
-function initSentimentCharts() {
-  const months = ['Sep 25', 'Oct 25', 'Nov 25', 'Dec 25', 'Jan 26', 'Feb 26', 'Mar 26', 'Apr 26'];
-  new Chart(document.getElementById('sentimentTrendChart'), {
-    type: 'bar',
-    data: {
-      labels: months,
-      datasets: [
-        { label: 'Positive', data: [7,3,4,7,11,17,11,16], backgroundColor: 'rgba(63,185,80,0.8)' },
-        { label: 'Negative', data: [4,1,4,2,5,5,3,8], backgroundColor: 'rgba(248,81,73,0.8)' },
-        { label: 'Neutral', data: [5,5,1,5,0,1,5,5], backgroundColor: 'rgba(139,148,158,0.5)' },
-      ]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { position: 'top', labels: { usePointStyle: true, padding: 14, font: { size: 11 } } } },
-      scales: { x: { stacked: true }, y: { stacked: true } }
-    }
-  });
-
-  new Chart(document.getElementById('negCategoryChart'), {
-    type: 'bar',
-    indexAxis: 'y',
-    data: {
-      labels: ['Customer Service','Account Issues','General','Wait Times','Fees & Charges','Fraud & Security','ATM & Branch'],
-      datasets: [{ data: [38, 14, 6, 5, 4, 3, 2], backgroundColor: 'rgba(248,81,73,0.7)', borderRadius: 4 }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: { x: { grid: { color: 'rgba(48,54,61,0.5)' } }, y: { grid: { display: false } } }
-    }
-  });
-
-  // Staff sentiment
-  new Chart(document.getElementById('staffSentimentChart'), {
-    type: 'doughnut',
-    data: {
-      labels: ['Positive staff', 'Negative staff'],
-      datasets: [{ data: [62, 34], backgroundColor: ['#3fb950', '#f85149'], borderWidth: 0 }]
-    },
-    options: {
-      responsive: true, cutout: '60%',
-      plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 14 } } }
-    }
-  });
-}
-
-// ============================================================
-// BRANCH PAGE
-// ============================================================
-function renderBranches() {
-  const branchData = [
-    { addr: '120 Hugh J. Grant Cir, Bronx', count: 3, avg: 1.0, neg: 3 },
-    { addr: '1395 Northern Blvd, Manhasset', count: 3, avg: 1.0, neg: 2 },
-    { addr: '78-01 37th Ave, Jackson Heights', count: 3, avg: 2.33, neg: 2 },
-    { addr: '1321 Kings Hwy, Brooklyn', count: 3, avg: 2.33, neg: 1 },
-    { addr: '370 E 149th St, Bronx', count: 5, avg: 2.6, neg: 2 },
-    { addr: '7415 5th Ave, Brooklyn', count: 4, avg: 2.75, neg: 2 },
-    { addr: '278 8th Ave, New York', count: 4, avg: 3.75, neg: 0 },
-    { addr: '5408 5th Ave, Brooklyn', count: 6, avg: 4.5, neg: 0 },
-    { addr: '1000 Merchants Concourse, Westbury', count: 3, avg: 5.0, neg: 0 },
-  ];
-
-  if (!document.getElementById('branchChart').dataset.rendered) {
-    document.getElementById('branchChart').dataset.rendered = '1';
-    new Chart(document.getElementById('branchChart'), {
-      type: 'bar',
-      data: {
-        labels: branchData.map(b => b.addr.split(',')[0]),
-        datasets: [{
-          label: 'Avg Rating',
-          data: branchData.map(b => b.avg),
-          backgroundColor: branchData.map(b => b.avg < 2 ? '#f85149' : b.avg < 3.5 ? '#e3b341' : '#3fb950'),
-          borderRadius: 4,
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { grid: { display: false } },
-          y: { min: 0, max: 5, grid: { color: 'rgba(48,54,61,0.5)' } }
-        }
-      }
-    });
-  }
-
-  const tbody = document.getElementById('branch-tbody');
-  tbody.innerHTML = branchData.map(b => {
-    const color = b.avg < 2 ? 'var(--red)' : b.avg < 3.5 ? 'var(--yellow)' : 'var(--green)';
-    const status = b.avg < 2 ? '<span style="color:var(--red)"><i class="bi bi-exclamation-circle-fill"></i> Critical</span>' :
-      b.avg < 3.5 ? '<span style="color:var(--yellow)"><i class="bi bi-dash-circle"></i> Monitor</span>' :
-      '<span style="color:var(--green)"><i class="bi bi-check-circle"></i> Good</span>';
-    return `<tr>
-      <td style="font-size:13px;">${b.addr}</td>
-      <td>${b.count}</td>
-      <td><span style="color:${color};font-weight:600;">★ ${b.avg.toFixed(1)}</span></td>
-      <td>${b.neg > 0 ? `<span style="color:var(--red);">${b.neg}</span>` : '<span style="color:var(--muted)">0</span>'}</td>
-      <td>${status}</td>
-    </tr>`;
-  }).join('');
-}
-
-// ============================================================
-// REVIEWS PAGE
+// REVIEWS PAGE state
 // ============================================================
 let reviewFilter = 'all';
 let reviewsShown = 15;
@@ -1238,7 +1034,7 @@ function renderStaff() {
       </div>
       <span style="font-size:12px;color:var(--muted);">${count} mention${count > 1 ? 's' : ''}</span>
     </div>`;
-  }).join('');
+  }).join('') || `<span style="color:var(--muted);font-size:12px;">No staff mentions yet</span>`;
 
   const withStaff = REVIEWS.filter(r => r.staff_mentioned && r.review_text).slice(0,5);
   document.getElementById('staff-review-samples').innerHTML = withStaff.map(r => `
@@ -1249,17 +1045,8 @@ function renderStaff() {
       </div>
       <div style="font-size:12px;color:#cdd9e5;line-height:1.6;">${r.review_text.slice(0,160)}${r.review_text.length > 160 ? '…' : ''}</div>
     </div>
-  `).join('');
+  `).join('') || `<span style="color:var(--muted);font-size:12px;">No staff examples yet</span>`;
 }
-
-// ============================================================
-// URGENT INDICATOR in topbar
-// ============================================================
-document.getElementById('urgent-indicator').innerHTML = `
-  <div class="badge-urgent" onclick="showPage('urgent')" style="cursor:pointer;">
-    <i class="bi bi-exclamation-triangle-fill"></i> 11 Urgent
-  </div>`;
-
 
 // ============================================================
 // DYNAMIC DASHBOARD METRICS + CHARTS
@@ -1306,11 +1093,6 @@ function monthLabel(key) {
 function latestMonths(n = 8) {
   const keys = [...new Set(REVIEWS.map(r => monthKey(r.review_date)).filter(k => k !== "Unknown"))].sort();
   return keys.slice(-n);
-}
-
-function setText(selector, value) {
-  const el = document.querySelector(selector);
-  if (el) el.textContent = value;
 }
 
 function applyDashboardMetrics() {
