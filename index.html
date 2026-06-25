@@ -366,6 +366,12 @@ body {
 .src-wallethub { background: rgba(188,140,255,.12); color: var(--purple); }
 .src-facebook { background: rgba(31,111,235,.12); color: var(--accent2); }
 
+/* keep wide tables contained instead of overflowing the page */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-scroll .data-table th,
+.table-scroll .data-table td { padding: 9px 10px; }
+.source-badge { white-space: nowrap; }
+
 /* ---- Urgent panel ---- */
 .urgent-card {
   background: rgba(248,81,73,.06);
@@ -618,8 +624,9 @@ body {
       </div>
       <div class="col-md-5">
         <div class="chart-card">
-          <div class="card-title">Source Performance</div>
+        <div class="card-title">Source Performance</div>
           <div class="card-sub">Average rating and sentiment per platform</div>
+          <div class="table-scroll">
           <table class="data-table">
             <thead>
               <tr>
@@ -632,6 +639,7 @@ body {
             </thead>
             <tbody></tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>
