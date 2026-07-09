@@ -890,7 +890,7 @@ body {
   <!-- ===== BRANCHES PAGE ===== -->
   <div id="page-branches" class="page">
     <div class="section-title">Branch Performance</div>
-    <div class="section-sub">Locations with 1+ reviews ranked by average rating — click a bar or row to see that branch's reviews</div>
+    <div class="section-sub">Locations with 1+ reviews ranked by average rating — click a bar or row to see that branch's reviews. Branch-level reviews come only from Google Maps (the only source tied to a physical location); reviews from Trustpilot, WalletHub, Reddit, and Facebook aren't location-specific and are excluded here.</div>
     <div class="chart-card mb-3">
       <canvas id="branchChart" height="300"></canvas>
     </div>
@@ -1792,7 +1792,7 @@ function initSentimentCharts() {
 function renderBranches() {
   const groups = {};
   REVIEWS.forEach(r => {
-    const key = r.branch_address || r.branch_name;
+    const key = r.branch_address;
     if (!key) return;
     groups[key] = groups[key] || [];
     groups[key].push(r);
