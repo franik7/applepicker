@@ -916,7 +916,9 @@ body {
   <!-- ===== ALL REVIEWS PAGE ===== -->
   <div id="page-reviews" class="page">
     <div class="filter-bar mb-2">
-      <input type="text" class="search-input" id="review-search" placeholder="🔍  Search reviews, authors, topics…" oninput="reviewsShown=15;renderReviews()">
+      <input type="text" class="search-input" id="review-search" placeholder="🔍  Search reviews, authors, topics…" oninput="onReviewSearchInput()">
+      <button class="filter-btn" id="smart-search-btn" onclick="toggleSmartSearch(this)" title="Hybrid semantic + keyword search — finds reviews by meaning, not just exact words">✨ Smart Search</button>
+      <span id="smart-status" style="font-size:11px;color:var(--muted);"></span>
       <button class="filter-btn active" onclick="setFilter('all')">All</button>
       <button class="filter-btn" onclick="setFilter('positive')">😊 Positive</button>
       <button class="filter-btn" onclick="setFilter('negative')">😞 Negative</button>
@@ -927,6 +929,7 @@ body {
     </div>
     <div class="filter-bar mb-2">
       <select id="review-sort" class="sort-select" onchange="setReviewSort(this.value)">
+        <option value="relevance" id="sort-relevance-opt" hidden>Relevance</option>
         <option value="newest">Newest first</option>
         <option value="oldest">Oldest first</option>
         <option value="rating_high">Highest rating</option>
@@ -1085,7 +1088,8 @@ function normalizeReview(r) {
     competitor_mentioned: r.competitor_mentioned ?? r.competitor ?? null,
     response_priority: priority,
     topics: toArray(r.topics ?? r.ai_topics ?? r.tags),
-    review_url: r.review_url ?? r.url ?? r.source_url ?? ""
+    review_url: r.review_url ?? r.url ?? r.source_url ?? "",
+    review_key: r.review_id ?? null
   };
 }
 
@@ -1168,6 +1172,14 @@ let modalChips = [];      // chips currently shown in the modal
 let modalSort = 'newest';
 let reviewSort = 'newest';
 let timePreset = 'all';   // 'all' | '30d' | '90d' | 'ytd'
+
+// ---- Smart (hybrid) search state ----
+let smartSearch = false;         // toggle on/off
+let smartActive = false;         // true when smart results currently drive the view
+let embedderPromise = null;      // cached Transformers.js pipeline (lazy-loaded once)
+let smartOrder = [];             // union of keyword+semantic hits, ordered by RRF score
+let smartSeq = 0;                // guards against out-of-order async responses
+let searchDebounceTimer = null;
 
 function escAttr(s) {
   return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
@@ -1333,23 +1345,38 @@ function setFilter(val) {
   renderReviews();
 }
 
+// Pills, drill chips and time preset — these always win, in both keyword and smart modes.
+function passesReviewFilters(r, cutoff) {
+  const matchFilter = reviewFilter === 'all' ||
+    r.sentiment === reviewFilter ||
+    r.source === reviewFilter;
+  const matchChips = drillChips.every(c => matchChip(r, c));
+  const matchTime = cutoff === null || ts(r) >= cutoff;
+  return matchFilter && matchChips && matchTime;
+}
+
 function getFilteredReviews() {
-  const search = (document.getElementById('review-search')?.value || '').toLowerCase();
   const cutoff = timeCutoff();
+
+  // Smart mode: start from the RRF-ordered union of keyword+semantic hits,
+  // then apply the same pills/chips/time filters on top (filters win, req 5).
+  if (smartActive && smartOrder.length) {
+    const list = smartOrder.filter(r => passesReviewFilters(r, cutoff));
+    // RRF order is baked into smartOrder; honor an explicit non-relevance sort override.
+    return reviewSort === 'relevance' ? list : sortReviews(list, reviewSort);
+  }
+
+  // Keyword mode: text query is a hard filter (unchanged behavior).
+  const search = (document.getElementById('review-search')?.value || '').toLowerCase();
   const filtered = REVIEWS.filter(r => {
-    const matchFilter = reviewFilter === 'all' ||
-      r.sentiment === reviewFilter ||
-      r.source === reviewFilter;
     const matchSearch = !search ||
       (r.review_text && r.review_text.toLowerCase().includes(search)) ||
       (r.author && r.author.toLowerCase().includes(search)) ||
       (r.category && r.category.toLowerCase().includes(search)) ||
       (r.topics && r.topics.join(' ').toLowerCase().includes(search));
-    const matchChips = drillChips.every(c => matchChip(r, c));
-    const matchTime = cutoff === null || ts(r) >= cutoff;
-    return matchFilter && matchSearch && matchChips && matchTime;
+    return passesReviewFilters(r, cutoff) && matchSearch;
   });
-  return sortReviews(filtered, reviewSort);
+  return sortReviews(filtered, reviewSort === 'relevance' ? 'newest' : reviewSort);
 }
 
 function renderStarStr(rating) {
@@ -1389,13 +1416,16 @@ function renderReviewCard(r) {
     ${r.review_text ? `<div class="review-text">${r.review_text.length > 280 ? r.review_text.slice(0,280) + '…' : r.review_text}</div>` : ''}
     ${summaryHtml}
     <div class="review-tags" style="margin-top:8px;">${topicTags}${staffHtml}</div>
+    ${r.review_url ? `<div style="margin-top:10px;"><a href="${r.review_url}" target="_blank" style="font-size:12px;color:var(--accent2);"><i class="bi bi-box-arrow-up-right"></i> View original</a></div>` : ''}
   </div>`;
 }
 
 function renderReviews() {
   const filtered = getFilteredReviews();
   const shown = filtered.slice(0, reviewsShown);
-  document.getElementById('review-count').textContent = `Showing ${shown.length} of ${filtered.length} reviews`;
+  const smartTag = (smartActive && smartOrder.length)
+    ? ` · <span style="color:var(--accent2);">✨ smart search</span>` : '';
+  document.getElementById('review-count').innerHTML = `Showing ${shown.length} of ${filtered.length} reviews${smartTag}`;
   document.getElementById('reviews-container').innerHTML = shown.map(renderReviewCard).join('');
   const btn = document.getElementById('load-more-btn');
   btn.style.display = filtered.length > reviewsShown ? 'block' : 'none';
@@ -1410,6 +1440,155 @@ function loadMoreReviews() {
 function initReviews() {
   reviewsInitialized = true;
   renderReviews();
+}
+
+// ============================================================
+// SMART (HYBRID) SEARCH — browser-side embeddings + RRF fusion
+// ============================================================
+
+// Stable key used to match a review against the RPC's review_id (see normalizeReview.review_key).
+// Keyword-only hits with no review_id get an "id:"-prefixed key so they never collide with real ids.
+function reviewIdKey(r) {
+  return r.review_key != null ? String(r.review_key) : 'id:' + r.id;
+}
+
+function setSmartStatus(msg) {
+  const el = document.getElementById('smart-status');
+  if (el) el.textContent = msg || '';
+}
+
+// Lazy-load and cache the Transformers.js pipeline. Dynamic import() works from this classic script.
+function getEmbedder() {
+  if (!embedderPromise) {
+    embedderPromise = (async () => {
+      const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
+      return pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+    })();
+  }
+  return embedderPromise;
+}
+
+async function embedQuery(text) {
+  const embedder = await getEmbedder();
+  const output = await embedder(text, { pooling: 'mean', normalize: true });
+  return Array.from(output.data);
+}
+
+function toggleSmartSearch(btn) {
+  smartSearch = !smartSearch;
+  btn.classList.toggle('active', smartSearch);
+  const relOpt = document.getElementById('sort-relevance-opt');
+  if (relOpt) relOpt.hidden = !smartSearch;
+  reviewsShown = 15;
+
+  if (smartSearch) {
+    const q = (document.getElementById('review-search').value || '').trim();
+    if (q) runSmartSearch();
+    else setSmartStatus('Type to search by meaning…');
+  } else {
+    // Back to keyword mode: drop smart results and reset the relevance sort.
+    smartActive = false;
+    smartOrder = [];
+    smartSeq++; // cancel any in-flight smart search
+    setSmartStatus('');
+    if (reviewSort === 'relevance') {
+      reviewSort = 'newest';
+      const sortEl = document.getElementById('review-sort');
+      if (sortEl) sortEl.value = 'newest';
+    }
+    renderReviews();
+  }
+}
+
+function onReviewSearchInput() {
+  reviewsShown = 15;
+  if (!smartSearch) { renderReviews(); return; }
+
+  clearTimeout(searchDebounceTimer);
+  const q = (document.getElementById('review-search').value || '').trim();
+  if (!q) {
+    smartActive = false;
+    smartOrder = [];
+    smartSeq++;
+    setSmartStatus('Type to search by meaning…');
+    renderReviews();
+    return;
+  }
+  searchDebounceTimer = setTimeout(runSmartSearch, 400);
+}
+
+async function runSmartSearch() {
+  const q = (document.getElementById('review-search').value || '').trim();
+  if (!smartSearch || !q) { smartActive = false; renderReviews(); return; }
+
+  const seq = ++smartSeq;
+  try {
+    if (!embedderPromise) setSmartStatus('✨ loading model…');
+    const embedding = await embedQuery(q);
+    if (seq !== smartSeq) return; // a newer query superseded this one
+
+    setSmartStatus('✨ searching…');
+    const { data, error } = await supabaseClient.rpc('search_reviews', {
+      query_embedding: embedding,
+      match_count: 50
+    });
+    if (error) throw error;
+    if (seq !== smartSeq) return;
+
+    // Semantic ranks (RPC already returns rows ordered by similarity desc).
+    const semRank = new Map();
+    (data || []).forEach((row, i) => {
+      if (row.review_id != null) semRank.set(String(row.review_id), i);
+    });
+
+    // Keyword ranks: same text-match fields as keyword mode, ranked by #matched fields then recency.
+    const ql = q.toLowerCase();
+    const kwRank = new Map();
+    REVIEWS.map(r => {
+      let hits = 0;
+      if (r.review_text && r.review_text.toLowerCase().includes(ql)) hits++;
+      if (r.author && r.author.toLowerCase().includes(ql)) hits++;
+      if (r.category && r.category.toLowerCase().includes(ql)) hits++;
+      if (r.topics && r.topics.join(' ').toLowerCase().includes(ql)) hits++;
+      return { r, hits };
+    }).filter(o => o.hits > 0)
+      .sort((a, b) => (b.hits - a.hits) || (ts(b.r) - ts(a.r)))
+      .forEach((o, i) => kwRank.set(reviewIdKey(o.r), i));
+
+    // Reciprocal Rank Fusion over the union of both lists (K=60), one-sided scores kept.
+    const K = 60;
+    const scores = new Map();
+    new Set([...kwRank.keys(), ...semRank.keys()]).forEach(id => {
+      let s = 0;
+      if (kwRank.has(id)) s += 0.6 * (1 / (K + kwRank.get(id)));
+      if (semRank.has(id)) s += 0.4 * (1 / (K + semRank.get(id)));
+      scores.set(id, s);
+    });
+
+    // Resolve ids back to review objects and order by RRF score desc.
+    const byKey = new Map();
+    REVIEWS.forEach(r => byKey.set(reviewIdKey(r), r));
+    smartOrder = [...scores.keys()]
+      .map(id => byKey.get(id))
+      .filter(Boolean)
+      .sort((a, b) => scores.get(reviewIdKey(b)) - scores.get(reviewIdKey(a)));
+    smartActive = true;
+
+    // Relevance ordering is only meaningful now — auto-select it.
+    reviewSort = 'relevance';
+    const sortEl = document.getElementById('review-sort');
+    if (sortEl) sortEl.value = 'relevance';
+
+    setSmartStatus('');
+    renderReviews();
+  } catch (e) {
+    // Never break the page — fall back silently to keyword-only.
+    console.warn('Smart search failed, falling back to keyword search:', e);
+    smartActive = false;
+    smartOrder = [];
+    setSmartStatus('⚠ smart search unavailable');
+    renderReviews();
+  }
 }
 
 // ============================================================
@@ -1535,8 +1714,12 @@ function applyDashboardMetrics() {
   const ratedCount = REVIEWS.filter(r => Number.isFinite(r.rating)).length;
   const avg = avgRating(REVIEWS);
   const sources = Object.keys(countBy(REVIEWS, r => r.source)).length;
-  const lastDate = REVIEWS.map(r => r.review_date).filter(Boolean).sort().pop();
-  const lastUpdate = lastDate ? new Date(lastDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "No data";
+  const lastDate = REVIEWS.map(r => r.review_date).filter(Boolean)
+    .map(d => ({ raw: d, t: new Date(d).getTime() }))
+    .filter(o => !Number.isNaN(o.t))
+    .sort((a, b) => a.t - b.t).pop();
+  // Render in UTC so date-only strings (parsed as UTC midnight) don't roll back a day in local time
+  const lastUpdate = lastDate ? new Date(lastDate.raw).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }) : "No data";
 
   const overviewValues = document.querySelectorAll("#page-overview .stat-card .stat-value");
   if (overviewValues[0]) overviewValues[0].textContent = total;
