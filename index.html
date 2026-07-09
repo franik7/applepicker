@@ -923,9 +923,7 @@ body {
       <button class="filter-btn" onclick="setFilter('positive')">😊 Positive</button>
       <button class="filter-btn" onclick="setFilter('negative')">😞 Negative</button>
       <button class="filter-btn" onclick="setFilter('neutral')">😐 Neutral</button>
-      <button class="filter-btn" onclick="setFilter('Google Maps')">Google Maps</button>
-      <button class="filter-btn" onclick="setFilter('WalletHub')">WalletHub</button>
-      <button class="filter-btn" onclick="setFilter('Trustpilot')">Trustpilot</button>
+      <span id="source-pills" style="display:contents;"></span>
     </div>
     <div class="filter-bar mb-2">
       <select id="review-sort" class="sort-select" onchange="setReviewSort(this.value)">
@@ -1119,6 +1117,7 @@ async function loadReviews() {
     renderUrgent();
     renderBranches();
     renderStaff();
+    renderSourcePills();
     renderReviews();
   } finally {
     document.getElementById("loading-overlay").classList.add("hidden");
@@ -1343,6 +1342,23 @@ function setFilter(val) {
   document.querySelectorAll('#page-reviews .filter-btn:not(.time-btn)').forEach(b => b.classList.remove('active'));
   event.target.classList.add('active');
   renderReviews();
+}
+
+// Build the source filter pills from the sources actually present in the data,
+// ordered by review count (most first). Keeps the row in sync with ab_reviews —
+// e.g. Facebook shows up automatically, Reddit only appears if it ever has reviews.
+function renderSourcePills() {
+  const container = document.getElementById('source-pills');
+  if (!container) return;
+  const counts = countBy(REVIEWS, r => r.source);
+  const sources = Object.keys(counts)
+    .filter(s => s && s !== 'Unknown')
+    .sort((a, b) => counts[b] - counts[a]);
+  container.innerHTML = sources.map(s => {
+    const jsArg = s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const attrArg = jsArg.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    return `<button class="filter-btn${reviewFilter === s ? ' active' : ''}" onclick="setFilter('${attrArg}')">${escAttr(s)}</button>`;
+  }).join('');
 }
 
 // Pills, drill chips and time preset — these always win, in both keyword and smart modes.
