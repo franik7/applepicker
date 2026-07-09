@@ -373,6 +373,8 @@ body {
 .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .table-scroll .data-table th,
 .table-scroll .data-table td { padding: 9px 10px; }
+/* Keep the branch table header visible while its (now uncapped) body scrolls vertically */
+#branch-table thead th { position: sticky; top: 0; background: var(--surface); z-index: 1; }
 .source-badge { white-space: nowrap; }
 
 /* ---- Urgent panel ---- */
@@ -892,11 +894,15 @@ body {
     <div class="section-title">Branch Performance</div>
     <div class="section-sub">Locations with 1+ reviews ranked by average rating — click a bar or row to see that branch's reviews. Branch-level reviews come only from Google Maps (the only source tied to a physical location); reviews from Trustpilot, WalletHub, Reddit, and Facebook aren't location-specific and are excluded here.</div>
     <div class="chart-card mb-3">
-      <canvas id="branchChart" height="300"></canvas>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+        <div id="branch-chart-wrap" style="height:300px;min-width:100%;">
+          <canvas id="branchChart"></canvas>
+        </div>
+      </div>
     </div>
     <div class="chart-card">
       <div class="card-title" style="margin-bottom:14px;">Branch Detail Table</div>
-      <div class="table-scroll">
+      <div class="table-scroll" style="max-height:440px;overflow-y:auto;">
       <table class="data-table" id="branch-table">
         <thead>
           <tr>
@@ -1996,12 +2002,17 @@ function renderBranches() {
     groups[key] = groups[key] || [];
     groups[key].push(r);
   });
+  // All branches (worst-rated first) — no cap; the chart scrolls horizontally and the table vertically.
   const branchData = Object.entries(groups).map(([addr, rows]) => ({
     addr,
     count: rows.length,
     avg: avgRating(rows),
     neg: rows.filter(r => r.sentiment === "negative").length
-  })).filter(b => b.count >= 1).sort((a,b) => a.avg - b.avg).slice(0,20);
+  })).filter(b => b.count >= 1).sort((a,b) => a.avg - b.avg);
+
+  // Widen the chart wrapper so each bar keeps a readable width; the card stays a fixed height and scrolls sideways.
+  const chartWrap = document.getElementById("branch-chart-wrap");
+  if (chartWrap) chartWrap.style.width = (branchData.length * 34) + "px"; // min-width:100% (CSS) fills the card when few branches
 
   destroyChart("branchChart");
   charts.branchChart = new Chart(document.getElementById("branchChart"), {
@@ -2012,6 +2023,7 @@ function renderBranches() {
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       onHover: chartCursor,
       onClick: (evt, els) => {
         if (!els.length) return;
