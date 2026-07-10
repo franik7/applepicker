@@ -640,7 +640,7 @@ body {
           <option value="rating_low">Lowest rating</option>
           <option value="priority">Priority (high → low)</option>
         </select>
-        <button class="filter-btn" onclick="drillSeeAll()">See all in All Reviews <i class="bi bi-arrow-right"></i></button>
+        <button class="filter-btn" id="drill-seeall-btn" onclick="drillSeeAll()">See all in All Reviews <i class="bi bi-arrow-right"></i></button>
         <i class="bi bi-x-lg drill-close" onclick="closeDrill()"></i>
       </div>
     </div>
@@ -688,6 +688,12 @@ body {
     <div class="nav-item">
       <a class="nav-link-item" onclick="showPage('staff')">
         <i class="bi bi-person-badge"></i> Staff Mentions
+      </a>
+    </div>
+    <div class="nav-section-label">Regulatory</div>
+    <div class="nav-item">
+      <a class="nav-link-item" onclick="showPage('complaints')">
+        <i class="bi bi-shield-exclamation"></i> CFPB Complaints <span id="sidebar-complaints-badge" style="margin-left:auto;"></span>
       </a>
     </div>
   </div>
@@ -981,6 +987,115 @@ body {
       </div>
     </div>
   </div>
+
+  <!-- ===== CFPB COMPLAINTS PAGE ===== -->
+  <div id="page-complaints" class="page">
+    <div class="section-title"><i class="bi bi-shield-exclamation"></i> CFPB Complaints</div>
+    <div class="section-sub">Consumer Financial Protection Bureau complaints filed against the company — a separate regulatory dataset, kept apart from customer reviews. Click any KPI, chart, or topic to drill in.</div>
+    <div id="complaints-error" class="urgent-card" style="display:none;margin-bottom:14px;"></div>
+
+    <!-- KPI Row -->
+    <div class="row g-3 mb-3">
+      <div class="col-md-3 col-6">
+        <div class="stat-card">
+          <div class="stat-icon"><i class="bi bi-file-earmark-text"></i></div>
+          <div class="stat-label">Total Complaints</div>
+          <div class="stat-value" id="kpi-complaints-total" style="color:var(--text)">—</div>
+          <div class="stat-sub">&nbsp;</div>
+        </div>
+      </div>
+      <div class="col-md-3 col-6">
+        <div class="stat-card clickable" onclick="drillComplaintUrgent()" title="View urgent complaints">
+          <div class="stat-icon"><i class="bi bi-exclamation-circle"></i></div>
+          <div class="stat-label">Urgent</div>
+          <div class="stat-value" id="kpi-complaints-urgent" style="color:var(--red)">—</div>
+          <div class="stat-sub">Requiring attention</div>
+        </div>
+      </div>
+      <div class="col-md-3 col-6">
+        <div class="stat-card">
+          <div class="stat-icon"><i class="bi bi-clock-history"></i></div>
+          <div class="stat-label">Timely Response Rate</div>
+          <div class="stat-value" id="kpi-complaints-timely" style="color:var(--green)">—</div>
+          <div class="stat-sub" id="kpi-complaints-timely-sub">&nbsp;</div>
+        </div>
+      </div>
+      <div class="col-md-3 col-6">
+        <div class="stat-card clickable" onclick="drillComplaintTopIssue()" title="View the top issue">
+          <div class="stat-icon"><i class="bi bi-list-stars"></i></div>
+          <div class="stat-label">Top Issue</div>
+          <div class="stat-value" id="kpi-complaints-topissue" style="color:var(--yellow);font-size:14px;line-height:1.3;">—</div>
+          <div class="stat-sub" id="kpi-complaints-topissue-sub">&nbsp;</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Row 1 -->
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <div class="chart-card h-100">
+          <div class="card-title">Complaints per Year</div>
+          <div class="card-sub">Volume by year received — click a bar to see that year's complaints</div>
+          <canvas id="complaintsYearChart" height="200"></canvas>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="chart-card h-100">
+          <div class="card-title">Issue Breakdown</div>
+          <div class="card-sub">Top 8 issues — click a bar to drill in</div>
+          <canvas id="complaintsIssueChart" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Row 2 -->
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <div class="chart-card h-100">
+          <div class="card-title">Product Split</div>
+          <div class="card-sub">Complaints by product — click a slice</div>
+          <canvas id="complaintsProductChart" height="200"></canvas>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="chart-card h-100">
+          <div class="card-title">Urgency Reasons</div>
+          <div class="card-sub">Reason classification for urgent complaints — click a reason</div>
+          <div id="complaint-urgency-list" style="margin-top:10px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Topic crossover -->
+    <div class="chart-card mb-3">
+      <div class="card-title">Topics Appearing in Reviews AND Complaints</div>
+      <div class="card-sub">Shared themes across both datasets — click to see the complaints, then jump to the matching reviews</div>
+      <div id="crossover-list" style="margin-top:6px;"></div>
+    </div>
+
+    <!-- Complaint feed -->
+    <div class="chart-card">
+      <div class="card-title" style="margin-bottom:12px;">Complaint Feed</div>
+      <div class="filter-bar mb-2">
+        <input type="text" class="search-input" id="complaint-search" placeholder="🔍  Search narratives, issues, topics…" oninput="onComplaintSearchInput()">
+        <select id="complaint-sort" class="sort-select" onchange="setComplaintSort(this.value)">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="priority">Priority (high → low)</option>
+        </select>
+        <span class="filter-divider"></span>
+        <span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Period</span>
+        <button class="filter-btn ctime-btn active" onclick="setComplaintTime('all', this)">All</button>
+        <button class="filter-btn ctime-btn" onclick="setComplaintTime('1y', this)">Last 1y</button>
+        <button class="filter-btn ctime-btn" onclick="setComplaintTime('5y', this)">Last 5y</button>
+        <button class="filter-btn ctime-btn" onclick="setComplaintTime('ytd', this)">YTD</button>
+      </div>
+      <div id="complaint-chips" class="chips-bar"></div>
+      <div id="complaint-count" style="font-size:12px;color:var(--muted);margin-bottom:12px;"></div>
+      <div id="complaints-container"></div>
+      <button class="load-more-btn" id="complaint-load-more" onclick="loadMoreComplaints()">Load more complaints</button>
+    </div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -997,6 +1112,8 @@ const SUPABASE_TABLE = "ab_reviews";
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let REVIEWS = [];
+let COMPLAINTS = [];
+let complaintsLoaded = false;
 let charts = {};
 
 // ============================================================
@@ -1024,6 +1141,7 @@ function startApp(session) {
   const who = document.getElementById("signed-in-as");
   if (who && session?.user?.email) who.textContent = session.user.email;
   loadReviews();
+  loadComplaints(); // runs in parallel; failure here must not affect the reviews dashboard
 }
 
 async function handleLogin() {
@@ -1125,6 +1243,7 @@ async function loadReviews() {
     renderStaff();
     renderSourcePills();
     renderReviews();
+    if (complaintsLoaded) renderComplaintCrossover(); // reviews arrived after complaints — refresh shared-topics
   } finally {
     document.getElementById("loading-overlay").classList.add("hidden");
   }
@@ -1139,12 +1258,13 @@ function showPage(name) {
   document.getElementById('page-' + name).classList.add('active');
   const navEl = document.querySelector(`[onclick="showPage('${name}')"]`);
   if (navEl) navEl.classList.add('active');
-  const titles = { overview: 'Overview', sentiment: 'Sentiment Analysis', branches: 'Branch Performance', reviews: 'All Reviews', urgent: 'Urgent Reviews', staff: 'Staff Mentions' };
+  const titles = { overview: 'Overview', sentiment: 'Sentiment Analysis', branches: 'Branch Performance', reviews: 'All Reviews', urgent: 'Urgent Reviews', staff: 'Staff Mentions', complaints: 'CFPB Complaints' };
   document.getElementById('topbar-title').textContent = titles[name] || name;
   if (name === 'reviews' && !reviewsInitialized) initReviews();
   if (name === 'urgent') renderUrgent();
   if (name === 'staff') renderStaff();
   if (name === 'branches') renderBranches();
+  if (name === 'complaints') renderComplaints();
 }
 
 // ============================================================
@@ -1175,6 +1295,8 @@ const chartCursor = (evt, els) => {
 let drillChips = [];      // chips applied on the All Reviews page
 let modalChips = [];      // chips currently shown in the modal
 let modalSort = 'newest';
+let modalMode = 'reviews';        // 'reviews' | 'complaints' — which dataset the modal is showing
+let modalCrossoverTopic = null;   // set when a complaint drill can jump to a matching review topic
 let reviewSort = 'newest';
 let timePreset = 'all';   // 'all' | '30d' | '90d' | 'ytd'
 
@@ -1188,6 +1310,14 @@ let searchDebounceTimer = null;
 
 function escAttr(s) {
   return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
+// Escape text destined for innerHTML (narratives, summaries). CFPB redactions like
+// XX/XX/XXXX and {$8800.00} are preserved verbatim — only HTML-significant chars are escaped.
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function ts(r) {
@@ -1217,7 +1347,8 @@ function chipLabel(chip) {
   const names = {
     sentiment: 'Sentiment', source: 'Source', category: 'Category', priority: 'Priority',
     topic: 'Topic', urgency_reason: 'Urgency', urgent: 'Flag', staff: 'Staff',
-    staff_sentiment: 'Staff sentiment', branch: 'Branch', month: 'Month', rating: 'Rating'
+    staff_sentiment: 'Staff sentiment', branch: 'Branch', month: 'Month', rating: 'Rating',
+    year: 'Year', issue: 'Issue', product: 'Product', timely: 'Timely', state: 'State'
   };
   let v = chip.value;
   if (chip.type === 'month') v = monthLabel(chip.value);
@@ -1247,10 +1378,14 @@ function sortReviews(list, mode) {
 
 // ---- Modal ----
 function openDrill(chips, title) {
+  modalMode = 'reviews';
+  modalCrossoverTopic = null;
   modalChips = chips;
   modalSort = 'newest';
   const sortEl = document.getElementById('drill-sort');
   if (sortEl) sortEl.value = 'newest';
+  const seeAll = document.getElementById('drill-seeall-btn');
+  if (seeAll) seeAll.innerHTML = 'See all in All Reviews <i class="bi bi-arrow-right"></i>';
   document.getElementById('drill-title').textContent = title || chips.map(chipLabel).join(' · ');
   renderDrill();
   document.getElementById('drill-modal').classList.add('open');
@@ -1261,6 +1396,20 @@ function drillRows() {
 }
 
 function renderDrill() {
+  if (modalMode === 'complaints') {
+    const rows = sortComplaints(COMPLAINTS.filter(c => modalChips.every(ch => matchComplaintChip(c, ch))), modalSort);
+    document.getElementById('drill-count').textContent = `${rows.length} matching complaint${rows.length === 1 ? '' : 's'}`;
+    let head = '';
+    if (modalCrossoverTopic) {
+      const revN = REVIEWS.filter(r => (r.topics || []).includes(modalCrossoverTopic)).length;
+      head = `<div style="padding:2px 0 14px;"><button class="filter-btn" onclick="crossoverToReviews()">🔗 View ${revN} matching review${revN === 1 ? '' : 's'} <i class="bi bi-arrow-right"></i></button></div>`;
+    }
+    document.getElementById('drill-body').innerHTML = head + (
+      rows.slice(0, 8).map(renderComplaintCard).join('') ||
+      `<div style="color:var(--muted);font-size:13px;padding:24px;text-align:center;">No matching complaints</div>`);
+    document.getElementById('drill-more').style.display = rows.length > 8 ? 'block' : 'none';
+    return;
+  }
   const rows = drillRows();
   document.getElementById('drill-count').textContent = `${rows.length} matching review${rows.length === 1 ? '' : 's'}`;
   document.getElementById('drill-body').innerHTML =
@@ -1273,6 +1422,15 @@ function setDrillSort(v) { modalSort = v; renderDrill(); }
 function closeDrill() { document.getElementById('drill-modal').classList.remove('open'); }
 
 function drillSeeAll() {
+  if (modalMode === 'complaints') {
+    complaintChips = [...modalChips];
+    complaintsShown = 15;
+    closeDrill();
+    showPage('complaints');
+    renderComplaintChips();
+    renderComplaintFeed();
+    return;
+  }
   drillChips = [...modalChips];
   reviewFilter = 'all';
   reviewsShown = 15;
@@ -2047,6 +2205,359 @@ function renderBranches() {
     </tr>`;
   }).join("") || `<tr><td colspan="5" style="color:var(--muted);">No branch data found</td></tr>`;
 }
+
+// ============================================================
+// CFPB COMPLAINTS  (separate dataset — never merged into reviews)
+// ============================================================
+let complaintChips = [];          // drill chips applied to the complaints feed
+let complaintSort = 'newest';
+let complaintTimePreset = 'all';  // 'all' | '1y' | '5y' | 'ytd'
+let complaintsShown = 15;
+let _topComplaintIssue = null;    // cached for the Top Issue KPI drill
+
+function normalizeComplaint(c) {
+  return {
+    id: c.id ?? c.complaint_id ?? crypto.randomUUID(),
+    complaint_id: c.complaint_id ?? null,
+    company: c.company ?? null,
+    date_received: c.date_received ?? null,
+    product: c.product ?? null,
+    sub_product: c.sub_product ?? null,
+    issue: c.issue ?? null,
+    sub_issue: c.sub_issue ?? null,
+    narrative: c.narrative ?? null,
+    company_response: c.company_response ?? null,
+    company_public_response: c.company_public_response ?? null,
+    timely: c.timely ?? null,
+    submitted_via: c.submitted_via ?? null,
+    state: c.state ?? null,
+    zip_code: c.zip_code ?? null,
+    tags: c.tags ?? null,
+    sentiment: String(c.sentiment ?? 'neutral').toLowerCase(),
+    category: c.category ?? null,
+    is_urgent: Boolean(c.is_urgent),
+    urgency_reason: c.urgency_reason ?? null,
+    ai_summary: c.ai_summary ?? null,
+    ai_processed: Boolean(c.ai_processed),
+    response_priority: Number(c.response_priority ?? 1),
+    topics: toArray(c.topics)
+  };
+}
+
+async function loadComplaints() {
+  const { data, error } = await supabaseClient
+    .from('ab_complaints')
+    .select('*')
+    .order('date_received', { ascending: false });
+
+  if (error) {
+    console.warn('Complaints load failed (reviews dashboard is unaffected):', error);
+    const box = document.getElementById('complaints-error');
+    if (box) {
+      box.style.display = 'block';
+      box.textContent = `Could not load CFPB complaints: ${error.message}. Check the ab_complaints table name and RLS policy.`;
+    }
+    return;
+  }
+
+  COMPLAINTS = (data || []).map(normalizeComplaint);
+  complaintsLoaded = true;
+  renderComplaints();
+}
+
+// ---- Complaint helpers ----
+function cts(c) {
+  const d = new Date(c.date_received || '');
+  return isNaN(d.getTime()) ? 0 : d.getTime();
+}
+
+function complaintYear(c) {
+  if (!c.date_received) return null;
+  const d = new Date(c.date_received);
+  return isNaN(d.getTime()) ? null : d.getFullYear();
+}
+
+function complaintCutoff() {
+  const now = new Date();
+  if (complaintTimePreset === '1y') return now.getTime() - 365 * 864e5;
+  if (complaintTimePreset === '5y') return now.getTime() - 5 * 365 * 864e5;
+  if (complaintTimePreset === 'ytd') return new Date(now.getFullYear(), 0, 1).getTime();
+  return null;
+}
+
+function sortComplaints(list, mode) {
+  const arr = [...list];
+  switch (mode) {
+    case 'oldest':
+      arr.sort((a, b) => cts(a) - cts(b)); break;
+    case 'priority':
+      arr.sort((a, b) => ((b.response_priority || 0) - (a.response_priority || 0)) || (cts(b) - cts(a))); break;
+    default: // newest
+      arr.sort((a, b) => cts(b) - cts(a));
+  }
+  return arr;
+}
+
+function matchComplaintChip(c, chip) {
+  switch (chip.type) {
+    case 'year': return complaintYear(c) === Number(chip.value);
+    case 'issue': return c.issue === chip.value;
+    case 'product': return c.product === chip.value;
+    case 'urgency_reason': return c.is_urgent && (c.urgency_reason || 'Urgent') === chip.value;
+    case 'urgent': return c.is_urgent;
+    case 'topic': return (c.topics || []).some(t => String(t).toLowerCase() === String(chip.value).toLowerCase());
+    case 'timely': return (c.timely || '') === chip.value;
+    case 'state': return (c.state || '') === chip.value;
+    default: return true;
+  }
+}
+
+function getFilteredComplaints() {
+  const search = (document.getElementById('complaint-search')?.value || '').toLowerCase();
+  const cutoff = complaintCutoff();
+  const filtered = COMPLAINTS.filter(c => {
+    const matchSearch = !search ||
+      (c.narrative && c.narrative.toLowerCase().includes(search)) ||
+      (c.ai_summary && c.ai_summary.toLowerCase().includes(search)) ||
+      (c.issue && c.issue.toLowerCase().includes(search)) ||
+      (c.topics && c.topics.join(' ').toLowerCase().includes(search));
+    const matchChips = complaintChips.every(ch => matchComplaintChip(c, ch));
+    const matchTime = cutoff === null || cts(c) >= cutoff;
+    return matchSearch && matchChips && matchTime;
+  });
+  return sortComplaints(filtered, complaintSort);
+}
+
+// ---- Render ----
+function renderComplaints() {
+  renderComplaintKPIs();
+  renderComplaintCharts();
+  renderComplaintCrossover();
+  renderComplaintFeed();
+}
+
+function renderComplaintKPIs() {
+  const total = COMPLAINTS.length;
+  const urgent = COMPLAINTS.filter(c => c.is_urgent).length;
+  const timelyYes = COMPLAINTS.filter(c => c.timely === 'Yes').length;
+  const timelyNo = COMPLAINTS.filter(c => c.timely === 'No').length;
+  const timelyDenom = timelyYes + timelyNo;
+  const issueEntries = Object.entries(countBy(COMPLAINTS.filter(c => c.issue), c => c.issue)).sort((a, b) => b[1] - a[1]);
+  _topComplaintIssue = issueEntries.length ? issueEntries[0][0] : null;
+
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('kpi-complaints-total', total);
+  set('kpi-complaints-urgent', urgent);
+  set('kpi-complaints-timely', timelyDenom ? safePct(timelyYes, timelyDenom) + '%' : 'N/A');
+  set('kpi-complaints-timely-sub', timelyDenom ? `${timelyYes} of ${timelyDenom} on time` : 'No data');
+  set('kpi-complaints-topissue', _topComplaintIssue || '—');
+  set('kpi-complaints-topissue-sub', issueEntries.length ? `${issueEntries[0][1]} complaint${issueEntries[0][1] === 1 ? '' : 's'}` : '');
+
+  const badge = document.getElementById('sidebar-complaints-badge');
+  if (badge) badge.innerHTML = urgent ? `<span style="background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:700;">${urgent}</span>` : '';
+}
+
+function renderComplaintCharts() {
+  // Complaints per year
+  const yearCounts = {};
+  COMPLAINTS.forEach(c => { const y = complaintYear(c); if (y != null) yearCounts[y] = (yearCounts[y] || 0) + 1; });
+  const years = Object.keys(yearCounts).map(Number).sort((a, b) => a - b);
+  destroyChart('complaintsYearChart');
+  charts.complaintsYearChart = new Chart(document.getElementById('complaintsYearChart'), {
+    type: 'bar',
+    data: { labels: years, datasets: [{ label: 'Complaints', data: years.map(y => yearCounts[y]), backgroundColor: 'rgba(31,111,235,0.7)', borderRadius: 4 }] },
+    options: {
+      responsive: true,
+      onHover: chartCursor,
+      onClick: (evt, els) => { if (!els.length) return; const y = years[els[0].index]; openComplaintDrill([{ type: 'year', value: y }], 'Year: ' + y); },
+      plugins: { legend: { display: false } },
+      scales: { x: { grid: { display: false } }, y: { beginAtZero: true } }
+    }
+  });
+
+  // Issue breakdown (top 8, horizontal)
+  const issueCounts = Object.entries(countBy(COMPLAINTS, c => c.issue || 'Unknown')).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  destroyChart('complaintsIssueChart');
+  charts.complaintsIssueChart = new Chart(document.getElementById('complaintsIssueChart'), {
+    type: 'bar',
+    data: { labels: issueCounts.map(x => x[0]), datasets: [{ data: issueCounts.map(x => x[1]), backgroundColor: 'rgba(226,179,65,0.75)', borderRadius: 4 }] },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      onHover: chartCursor,
+      onClick: (evt, els) => { if (!els.length) return; const iss = issueCounts[els[0].index][0]; openComplaintDrill([{ type: 'issue', value: iss }], 'Issue: ' + iss); },
+      plugins: { legend: { display: false } }
+    }
+  });
+
+  // Product split (doughnut)
+  const productCounts = Object.entries(countBy(COMPLAINTS, c => c.product || 'Unknown')).sort((a, b) => b[1] - a[1]);
+  const prodPalette = ['#1f6feb', '#3fb950', '#e3b341', '#bc8cff', '#39c5cf', '#f85149', '#d29922', '#8b949e'];
+  destroyChart('complaintsProductChart');
+  charts.complaintsProductChart = new Chart(document.getElementById('complaintsProductChart'), {
+    type: 'doughnut',
+    data: { labels: productCounts.map(x => x[0]), datasets: [{ data: productCounts.map(x => x[1]), backgroundColor: productCounts.map((_, i) => prodPalette[i % prodPalette.length]), borderWidth: 0, hoverOffset: 6 }] },
+    options: {
+      responsive: true,
+      cutout: '60%',
+      onHover: chartCursor,
+      onClick: (evt, els) => { if (!els.length) return; const p = productCounts[els[0].index][0]; openComplaintDrill([{ type: 'product', value: p }], 'Product: ' + p); },
+      plugins: { legend: { position: 'right', labels: { font: { size: 10 }, padding: 8, boxWidth: 10 } } }
+    }
+  });
+
+  // Urgency reasons (clickable list, mirrors the sentiment page)
+  const box = document.getElementById('complaint-urgency-list');
+  if (box) {
+    const reasons = Object.entries(countBy(COMPLAINTS.filter(c => c.is_urgent), c => c.urgency_reason || 'Urgent')).sort((a, b) => b[1] - a[1]);
+    box.innerHTML = reasons.map(([reason, count]) => `<div class="clickable" data-val="${escAttr(reason)}" onclick="drillComplaintUrgency(this)" style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
+      <span style="color:var(--muted);font-size:13px;"><i class="bi bi-exclamation-circle" style="color:var(--red);margin-right:6px;"></i>${escapeHtml(String(reason).replaceAll('_', ' '))}</span>
+      <span style="color:var(--red);font-weight:600;">${count} case${count === 1 ? '' : 's'}</span>
+    </div>`).join('') || `<span style="color:var(--muted);font-size:12px;">No urgent complaints</span>`;
+  }
+}
+
+function renderComplaintCrossover() {
+  const box = document.getElementById('crossover-list');
+  if (!box) return;
+  const revCount = {}, revLabel = {};
+  REVIEWS.forEach(r => new Set((r.topics || []).map(String)).forEach(t => {
+    const k = t.toLowerCase(); revCount[k] = (revCount[k] || 0) + 1; if (!revLabel[k]) revLabel[k] = t;
+  }));
+  const compCount = {}, compLabel = {};
+  COMPLAINTS.forEach(c => new Set((c.topics || []).map(String)).forEach(t => {
+    const k = t.toLowerCase(); compCount[k] = (compCount[k] || 0) + 1; if (!compLabel[k]) compLabel[k] = t;
+  }));
+  const rows = Object.keys(compCount).filter(k => revCount[k])
+    .map(k => ({ rev: revCount[k], comp: compCount[k], revLabel: revLabel[k], compLabel: compLabel[k] }))
+    .sort((a, b) => (b.rev + b.comp) - (a.rev + a.comp)).slice(0, 10);
+  box.innerHTML = rows.map(r => `<div class="clickable" data-comp="${escAttr(r.compLabel)}" data-rev="${escAttr(r.revLabel)}" onclick="crossoverDrill(this)" style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
+    <span style="font-size:13px;color:var(--text);"><i class="bi bi-tags" style="color:var(--purple);margin-right:6px;"></i>${escapeHtml(r.compLabel)}</span>
+    <span style="font-size:12px;color:var(--muted);">${r.rev} review${r.rev === 1 ? '' : 's'} · ${r.comp} complaint${r.comp === 1 ? '' : 's'}</span>
+  </div>`).join('') || `<span style="color:var(--muted);font-size:12px;">No topics shared between reviews and complaints yet.</span>`;
+}
+
+function renderComplaintFeed() {
+  const cont = document.getElementById('complaints-container');
+  const countEl = document.getElementById('complaint-count');
+  if (!complaintsLoaded && COMPLAINTS.length === 0) {
+    if (countEl) countEl.textContent = 'Loading complaints…';
+    if (cont) cont.innerHTML = `<div class="review-item" style="color:var(--muted);">Loading CFPB complaints…</div>`;
+    const b = document.getElementById('complaint-load-more'); if (b) b.style.display = 'none';
+    renderComplaintChips();
+    return;
+  }
+  const filtered = getFilteredComplaints();
+  const shown = filtered.slice(0, complaintsShown);
+  if (countEl) countEl.textContent = `Showing ${shown.length} of ${filtered.length} complaints`;
+  if (cont) cont.innerHTML = shown.map(renderComplaintCard).join('') || `<div class="review-item" style="color:var(--muted);">No complaints match these filters.</div>`;
+  const btn = document.getElementById('complaint-load-more');
+  if (btn) btn.style.display = filtered.length > complaintsShown ? 'block' : 'none';
+  renderComplaintChips();
+}
+
+function renderComplaintCard(c) {
+  const timely = c.timely === 'Yes' ? `<span class="tag tag-positive">Timely: Yes</span>`
+    : c.timely === 'No' ? `<span class="tag tag-negative">Timely: No</span>` : '';
+  const urgTag = c.is_urgent ? `<span class="tag tag-urgent"><i class="bi bi-exclamation-triangle-fill"></i> Urgent</span>` : '';
+  const prod = [c.product, c.sub_product].filter(Boolean).join(' · ');
+  const iss = [c.issue, c.sub_issue].filter(Boolean).join(' · ');
+  const topicTags = (c.topics || []).slice(0, 6).map(t => `<span class="tag tag-topic clickable" data-val="${escAttr(t)}" onclick="drillComplaintTopic(this)">${escapeHtml(t)}</span>`).join('');
+  const summaryHtml = c.ai_summary ? `<div class="ai-summary-text"><i class="bi bi-cpu" style="margin-right:4px;"></i>${escapeHtml(c.ai_summary)}</div>` : '';
+  const respHtml = c.company_response ? `<div style="font-size:12px;color:var(--muted);margin-top:8px;"><i class="bi bi-reply" style="margin-right:4px;"></i>Company response: <span style="color:#cdd9e5;">${escapeHtml(c.company_response)}</span></div>` : '';
+
+  let narrHtml;
+  if (c.narrative) {
+    const full = c.narrative;
+    const truncated = full.length > 300;
+    const preview = truncated ? full.slice(0, 300) : full;
+    narrHtml = `<div class="complaint-narr" data-full="${escAttr(full)}">
+      <div class="review-text" style="margin-bottom:4px;">${escapeHtml(preview)}${truncated ? '…' : ''}</div>
+      ${truncated ? `<span class="clickable" style="color:var(--accent2);font-size:12px;" onclick="expandNarrative(this)">Show full complaint ▾</span>` : ''}
+    </div>`;
+  } else {
+    narrHtml = `<div class="review-text" style="color:var(--muted);font-style:italic;">No narrative provided in this complaint.</div>`;
+  }
+
+  return `<div class="review-item ${c.is_urgent ? 'urgent' : ''}">
+    <div class="review-header">
+      <div>
+        <div class="review-author">${escapeHtml(prod || 'Complaint')}</div>
+        <div class="review-meta">${c.date_received || ''}${c.state ? ' · ' + escapeHtml(c.state) : ''}${iss ? ' · ' + escapeHtml(iss) : ''}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;">
+        ${timely}
+        ${urgTag}
+      </div>
+    </div>
+    ${narrHtml}
+    ${summaryHtml}
+    ${respHtml}
+    ${topicTags ? `<div class="review-tags" style="margin-top:8px;">${topicTags}</div>` : ''}
+  </div>`;
+}
+
+function expandNarrative(el) {
+  const wrap = el.closest('.complaint-narr');
+  if (!wrap) return;
+  const txt = wrap.querySelector('.review-text');
+  if (txt) txt.textContent = wrap.dataset.full; // textContent = safe, no re-escaping needed
+  el.remove();
+}
+
+function renderComplaintChips() {
+  const bar = document.getElementById('complaint-chips');
+  if (!bar) return;
+  bar.innerHTML = complaintChips.map((c, i) =>
+    `<span class="chip">${chipLabel(c)} <i class="bi bi-x" onclick="removeComplaintChip(${i})" title="Remove filter"></i></span>`
+  ).join('');
+  bar.style.display = complaintChips.length ? 'flex' : 'none';
+}
+
+function removeComplaintChip(i) {
+  complaintChips.splice(i, 1);
+  complaintsShown = 15;
+  renderComplaintChips();
+  renderComplaintFeed();
+}
+
+function onComplaintSearchInput() { complaintsShown = 15; renderComplaintFeed(); }
+function setComplaintSort(v) { complaintSort = v; renderComplaintFeed(); }
+
+function setComplaintTime(v, btn) {
+  complaintTimePreset = v;
+  complaintsShown = 15;
+  document.querySelectorAll('#page-complaints .ctime-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderComplaintFeed();
+}
+
+function loadMoreComplaints() { complaintsShown += 15; renderComplaintFeed(); }
+
+// ---- Complaint drill-down (own chip state; never leaks into review chips) ----
+function openComplaintDrill(chips, title, crossoverReviewTopic) {
+  modalMode = 'complaints';
+  modalCrossoverTopic = crossoverReviewTopic || null;
+  modalChips = chips;
+  modalSort = 'newest';
+  const sortEl = document.getElementById('drill-sort');
+  if (sortEl) sortEl.value = 'newest';
+  const seeAll = document.getElementById('drill-seeall-btn');
+  if (seeAll) seeAll.innerHTML = 'See all in Complaints <i class="bi bi-arrow-right"></i>';
+  document.getElementById('drill-title').textContent = title || chips.map(chipLabel).join(' · ');
+  renderDrill();
+  document.getElementById('drill-modal').classList.add('open');
+}
+
+function crossoverToReviews() {
+  if (modalCrossoverTopic) openDrill([{ type: 'topic', value: modalCrossoverTopic }]);
+}
+
+function drillComplaintUrgent() { openComplaintDrill([{ type: 'urgent', value: true }], 'Urgent complaints'); }
+function drillComplaintTopIssue() { if (_topComplaintIssue) openComplaintDrill([{ type: 'issue', value: _topComplaintIssue }], 'Issue: ' + _topComplaintIssue); }
+function drillComplaintTopic(el) { openComplaintDrill([{ type: 'topic', value: el.dataset.val }], 'Topic: ' + el.dataset.val); }
+function drillComplaintUrgency(el) { openComplaintDrill([{ type: 'urgency_reason', value: el.dataset.val }], 'Urgency: ' + String(el.dataset.val).replaceAll('_', ' ')); }
+function crossoverDrill(el) { openComplaintDrill([{ type: 'topic', value: el.dataset.comp }], 'Topic: ' + el.dataset.comp, el.dataset.rev); }
 
 // ============================================================
 // INIT
