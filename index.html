@@ -217,6 +217,7 @@ body {
 }
 .review-item:hover { border-color: var(--accent2); }
 .review-item.urgent { border-left: 3px solid var(--red); }
+.review-item.resolved-item { border-left: 3px solid rgba(63,185,80,.5); }
 .review-header {
   display: flex;
   align-items: flex-start;
@@ -246,6 +247,20 @@ body {
 .tag-urgent { color: var(--red); border-color: var(--red); background: rgba(248,81,73,.12); }
 .tag-topic { color: var(--purple); border-color: rgba(188,140,255,.3); background: rgba(188,140,255,.07); }
 .tag-source { color: var(--teal); border-color: rgba(57,197,207,.3); background: rgba(57,197,207,.07); }
+.tag-resolved { color: var(--green); border-color: rgba(63,185,80,.35); background: rgba(63,185,80,.10); }
+
+/* ---- Resolve workflow ---- */
+.resolve-bar { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.resolve-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); font-size: 12px; padding: 4px 10px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all .15s; }
+.resolve-btn:hover { border-color: var(--green); color: var(--green); }
+.resolve-btn.undo:hover { border-color: var(--accent2); color: var(--accent2); }
+.resolve-btn:disabled { opacity: .5; cursor: default; }
+.resolve-error { font-size: 11px; color: var(--red); display: inline-flex; align-items: center; gap: 4px; }
+.urgent-muted { opacity: .55; transition: opacity .2s; }
+.urgent-muted:hover { opacity: .9; }
+.urgent-resolved-toggle { margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--border); }
+.urgent-resolved-toggle .toggle-link { color: var(--muted); font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.urgent-resolved-toggle .toggle-link:hover { color: var(--accent2); }
 
 .stars { color: var(--yellow); font-size: 12px; }
 
@@ -1295,7 +1310,10 @@ function normalizeReview(r) {
     response_priority: priority,
     topics: toArray(r.topics ?? r.ai_topics ?? r.tags),
     review_url: r.review_url ?? r.url ?? r.source_url ?? "",
-    review_key: r.review_id ?? null
+    review_key: r.review_id ?? null,
+    resolved: Boolean(r.resolved),
+    resolved_at: r.resolved_at ?? null,
+    resolved_by: r.resolved_by ?? null
   };
 }
 
@@ -1659,7 +1677,8 @@ function srcBadge(src) {
   return `<span class="source-badge ${srcCls}"><i class="bi ${icon}"></i> ${src}</span>`;
 }
 
-function renderReviewCard(r) {
+function renderReviewCard(r, opts) {
+  const allowResolve = !!(opts && opts.resolveAction);
   const sentTag = `<span class="tag tag-${r.sentiment}">${r.sentiment}</span>`;
   const urgTag = r.is_urgent ? `<span class="tag tag-urgent"><i class="bi bi-exclamation-triangle-fill"></i> Urgent</span>` : '';
   const topicTags = (r.topics || []).slice(0,4).map(t => `<span class="tag tag-topic clickable" data-val="${escAttr(t)}" onclick="drillTopic(this)">${t}</span>`).join('');
@@ -1667,7 +1686,7 @@ function renderReviewCard(r) {
   const summaryHtml = r.ai_summary ? `<div class="ai-summary-text"><i class="bi bi-cpu" style="margin-right:4px;"></i>${r.ai_summary}</div>` : '';
   const staffHtml = r.staff_mentioned ? `<span class="tag tag-topic clickable" data-val="${escAttr(r.staff_mentioned)}" onclick="drillStaff(this)"><i class="bi bi-person"></i> ${r.staff_mentioned}</span>` : '';
 
-  return `<div class="review-item ${r.is_urgent ? 'urgent' : ''}">
+  return `<div class="review-item ${r.is_urgent && !r.resolved ? 'urgent' : ''} ${r.resolved ? 'resolved-item' : ''}">
     <div class="review-header">
       <div>
         <div class="review-author">${r.author || 'Anonymous'}</div>
@@ -1684,6 +1703,7 @@ function renderReviewCard(r) {
     ${summaryHtml}
     <div class="review-tags" style="margin-top:8px;">${topicTags}${staffHtml}</div>
     ${r.review_url ? `<div style="margin-top:10px;"><a href="${r.review_url}" target="_blank" style="font-size:12px;color:var(--accent2);"><i class="bi bi-box-arrow-up-right"></i> View original</a></div>` : ''}
+    ${resolveControlsHtml('review', r, allowResolve)}
   </div>`;
 }
 
@@ -1877,12 +1897,99 @@ async function runSmartSearch() {
 // ============================================================
 // CROSS-CHANNEL ATTENTION  (Home + Urgent — unify, never blend metrics)
 // ============================================================
+
+// Recency window for "attention" surfaces. An item is *actionable urgent* when it is flagged
+// urgent, dated within this window, and not yet resolved. Attention surfaces (badges, urgent
+// counters/KPIs, the Urgent queue) count only these. Analysis charts keep using raw is_urgent.
+const URGENT_WINDOW_DAYS = 90;
+
+function withinUrgentWindow(timeMs) {
+  return !!timeMs && timeMs >= Date.now() - URGENT_WINDOW_DAYS * 864e5;
+}
+function isActionableReview(r) {
+  return r.is_urgent && !r.resolved && withinUrgentWindow(ts(r));
+}
+function isActionableComplaint(c) {
+  return c.is_urgent && !c.resolved && withinUrgentWindow(cts(c));
+}
+
+// ---- Resolve workflow (optimistic, RPC-backed) ----
+const resolveErrors = new Map();  // `${kind}:${localId}` -> transient inline error message
+
+function markResolved(kind, localId) { setItemResolved(kind, localId, true); }
+function undoResolve(kind, localId) { setItemResolved(kind, localId, false); }
+
+// Optimistically flip resolved state and re-render attention surfaces, then persist via the
+// set_resolved RPC. On failure, revert and surface a small inline error next to the card.
+async function setItemResolved(kind, localId, resolved) {
+  const arr = kind === 'review' ? REVIEWS : COMPLAINTS;
+  const item = arr.find(x => String(x.id) === String(localId));
+  if (!item) return;
+  const errKey = kind + ':' + localId;
+  resolveErrors.delete(errKey);
+
+  // The RPC keys on each table's natural id (review_id / complaint_id); fall back to our id.
+  const keyVal = kind === 'review' ? (item.review_key ?? item.id) : (item.complaint_id ?? item.id);
+  const prev = { resolved: item.resolved, resolved_at: item.resolved_at, resolved_by: item.resolved_by };
+
+  item.resolved = resolved;
+  item.resolved_at = resolved ? new Date().toISOString() : null;
+  refreshResolveSurfaces();
+
+  try {
+    const { error } = await supabaseClient.rpc('set_resolved', {
+      p_table: kind, p_id: String(keyVal), p_resolved: resolved
+    });
+    if (error) throw error;
+  } catch (e) {
+    console.warn('set_resolved failed, reverting:', e);
+    Object.assign(item, prev);
+    resolveErrors.set(errKey, 'Couldn’t save — try again');
+    refreshResolveSurfaces();
+    setTimeout(() => { resolveErrors.delete(errKey); refreshResolveSurfaces(); }, 4000);
+  }
+}
+
+// Re-render every surface whose urgent/resolved state may have changed. Cheap and idempotent.
+function refreshResolveSurfaces() {
+  updateAttention();
+  renderUrgentQueue();
+  if (reviewsInitialized) renderReviews();
+  if (complaintsLoaded) renderComplaintFeed();
+  if (REVIEWS.length) applyDashboardMetrics();  // Overview 'Urgent' KPI
+  if (COMPLAINTS.length) renderComplaintKPIs();  // Complaints 'Urgent' KPI
+}
+
+// Resolve controls appended to a card. Resolved items always show a Resolved tag + Undo;
+// unresolved urgent items show 'Mark resolved' only where allowResolveAction is set.
+function resolveControlsHtml(kind, item, allowResolveAction) {
+  const arg = escAttr(String(item.id).replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
+  const errKey = kind + ':' + item.id;
+  const err = resolveErrors.has(errKey)
+    ? `<span class="resolve-error"><i class="bi bi-exclamation-circle"></i> ${escapeHtml(resolveErrors.get(errKey))}</span>` : '';
+  if (item.resolved) {
+    return `<div class="resolve-bar">
+      <span class="tag tag-resolved"><i class="bi bi-check-circle-fill"></i> Resolved</span>
+      <button class="resolve-btn undo" onclick="undoResolve('${kind}','${arg}')"><i class="bi bi-arrow-counterclockwise"></i> Undo</button>
+      ${err}
+    </div>`;
+  }
+  if (allowResolveAction && item.is_urgent) {
+    return `<div class="resolve-bar">
+      <button class="resolve-btn" onclick="markResolved('${kind}','${arg}')"><i class="bi bi-check2-circle"></i> Mark resolved</button>
+      ${err}
+    </div>`;
+  }
+  return err ? `<div class="resolve-bar">${err}</div>` : '';
+}
+
 let urgentChannel = 'all'; // 'all' | 'reviews' | 'complaints' (local view state, NOT drill chips)
+let showResolvedUrgent = false; // Urgent page footer toggle: reveal windowed-out / resolved urgents
 
 // Combined urgent counters: topbar badge, sidebar badge, Home banner. Called from both loaders.
 function updateAttention() {
-  const rev = REVIEWS.filter(r => r.is_urgent).length;
-  const comp = COMPLAINTS.filter(c => c.is_urgent).length;
+  const rev = REVIEWS.filter(isActionableReview).length;
+  const comp = COMPLAINTS.filter(isActionableComplaint).length;
   const total = rev + comp;
   const ind = document.getElementById('urgent-indicator');
   if (ind) ind.innerHTML = total
@@ -1958,43 +2065,70 @@ function setUrgentChannel(v, btn) {
 }
 
 // A channel badge + priority label sits above each native card (keeps each card's own drill handlers).
-function urgentItemHtml(entry) {
+function urgentItemHtml(entry, opts) {
   const badge = entry.channel === 'review'
     ? '<span class="channel-badge ch-review"><i class="bi bi-chat-left-text"></i> Review</span>'
     : '<span class="channel-badge ch-complaint"><i class="bi bi-shield-exclamation"></i> Complaint</span>';
   const p = entry.prio;
   const head = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">${badge}<span style="font-size:11px;color:var(--red);font-weight:600;">Priority ${p}</span></div>`;
-  const card = entry.channel === 'review' ? renderReviewCard(entry.item) : renderComplaintCard(entry.item);
+  const card = entry.channel === 'review' ? renderReviewCard(entry.item, opts) : renderComplaintCard(entry.item, opts);
   return `<div style="margin-bottom:14px;">${head}${card}</div>`;
 }
 
-function renderUrgentQueue() {
-  const entries = [];
-  if (urgentChannel === 'all' || urgentChannel === 'reviews')
-    REVIEWS.filter(r => r.is_urgent).forEach(r => entries.push({ channel: 'review', item: r, prio: Number(r.response_priority || 1), time: ts(r) }));
-  if (urgentChannel === 'all' || urgentChannel === 'complaints')
-    COMPLAINTS.filter(c => c.is_urgent).forEach(c => entries.push({ channel: 'complaint', item: c, prio: Number(c.response_priority || 1), time: cts(c) }));
-  entries.sort((a, b) => (b.prio - a.prio) || (b.time - a.time));
+function priorityHeader(p) {
+  return `<div style="display:flex;align-items:center;gap:8px;margin:16px 0 10px;"><span class="priority-dot p${p}" style="width:10px;height:10px;display:inline-block;"></span><span style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Priority ${p}</span></div>`;
+}
 
-  const rev = entries.filter(e => e.channel === 'review').length;
-  const comp = entries.filter(e => e.channel === 'complaint').length;
+function renderUrgentGroups(entries) {
+  let html = '', lastP = null;
+  entries.forEach(e => {
+    if (e.prio !== lastP) { lastP = e.prio; html += priorityHeader(e.prio); }
+    html += urgentItemHtml(e, { resolveAction: true });
+  });
+  return html;
+}
+
+function renderUrgentQueue() {
+  const inChannel = ch => urgentChannel === 'all' || urgentChannel === ch;
+  // actionable = flagged urgent, in-window, unresolved. other = urgent but windowed-out or resolved.
+  const actionable = [], other = [];
+  if (inChannel('reviews')) REVIEWS.filter(r => r.is_urgent).forEach(r => {
+    const e = { channel: 'review', item: r, prio: Number(r.response_priority || 1), time: ts(r) };
+    (isActionableReview(r) ? actionable : other).push(e);
+  });
+  if (inChannel('complaints')) COMPLAINTS.filter(c => c.is_urgent).forEach(c => {
+    const e = { channel: 'complaint', item: c, prio: Number(c.response_priority || 1), time: cts(c) };
+    (isActionableComplaint(c) ? actionable : other).push(e);
+  });
+  const bySort = (a, b) => (b.prio - a.prio) || (b.time - a.time);
+  actionable.sort(bySort); other.sort(bySort);
+
+  const rev = actionable.filter(e => e.channel === 'review').length;
+  const comp = actionable.filter(e => e.channel === 'complaint').length;
   const countEl = document.getElementById('urgent-count');
-  if (countEl) countEl.textContent = `${entries.length} urgent · ${rev} review${rev === 1 ? '' : 's'} · ${comp} complaint${comp === 1 ? '' : 's'}`;
+  if (countEl) countEl.textContent = `${actionable.length} urgent · ${rev} review${rev === 1 ? '' : 's'} · ${comp} complaint${comp === 1 ? '' : 's'}`;
 
   const cont = document.getElementById('urgent-container');
   if (!cont) return;
-  if (!entries.length) { cont.innerHTML = `<div class="review-item" style="color:var(--muted);">No urgent items in this view.</div>`; return; }
 
-  let html = '', lastP = null;
-  entries.forEach(e => {
-    if (e.prio !== lastP) {
-      lastP = e.prio;
-      html += `<div style="display:flex;align-items:center;gap:8px;margin:16px 0 10px;"><span class="priority-dot p${e.prio}" style="width:10px;height:10px;display:inline-block;"></span><span style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Priority ${e.prio}</span></div>`;
-    }
-    html += urgentItemHtml(e);
-  });
+  let html = actionable.length
+    ? renderUrgentGroups(actionable)
+    : `<div class="review-item" style="color:var(--muted);">No actionable urgent items in this view.</div>`;
+
+  // Footer: resolved & older urgent items, revealed on demand so nothing is ever hidden-hidden.
+  if (other.length) {
+    html += `<div class="urgent-resolved-toggle">
+      <span class="toggle-link" onclick="toggleResolvedUrgent()">
+        <i class="bi bi-chevron-${showResolvedUrgent ? 'down' : 'right'}"></i>
+        ${showResolvedUrgent ? 'Hide' : 'Show'} resolved &amp; older urgent items (${other.length})
+      </span>
+    </div>`;
+    if (showResolvedUrgent) html += `<div class="urgent-muted" style="margin-top:12px;">${renderUrgentGroups(other)}</div>`;
+  }
   cont.innerHTML = html;
 }
+
+function toggleResolvedUrgent() { showResolvedUrgent = !showResolvedUrgent; renderUrgentQueue(); }
 
 // ============================================================
 // STAFF PAGE
@@ -2085,7 +2219,7 @@ function applyDashboardMetrics() {
   const positive = REVIEWS.filter(r => r.sentiment === "positive").length;
   const negative = REVIEWS.filter(r => r.sentiment === "negative").length;
   const neutral = REVIEWS.filter(r => r.sentiment === "neutral").length;
-  const urgent = REVIEWS.filter(r => r.is_urgent).length;
+  const urgent = REVIEWS.filter(isActionableReview).length;  // attention KPI — actionable only
   const ratedCount = REVIEWS.filter(r => Number.isFinite(r.rating)).length;
   const avg = avgRating(REVIEWS);
   const sources = Object.keys(countBy(REVIEWS, r => r.source)).length;
@@ -2445,7 +2579,10 @@ function normalizeComplaint(c) {
     ai_summary: c.ai_summary ?? null,
     ai_processed: Boolean(c.ai_processed),
     response_priority: Number(c.response_priority ?? 1),
-    topics: toArray(c.topics)
+    topics: toArray(c.topics),
+    resolved: Boolean(c.resolved),
+    resolved_at: c.resolved_at ?? null,
+    resolved_by: c.resolved_by ?? null
   };
 }
 
@@ -2561,7 +2698,7 @@ function renderComplaints() {
 
 function renderComplaintKPIs() {
   const total = COMPLAINTS.length;
-  const urgent = COMPLAINTS.filter(c => c.is_urgent).length;
+  const urgent = COMPLAINTS.filter(isActionableComplaint).length;  // attention KPI — actionable only
   const timelyYes = COMPLAINTS.filter(c => c.timely === 'Yes').length;
   const timelyNo = COMPLAINTS.filter(c => c.timely === 'No').length;
   const timelyDenom = timelyYes + timelyNo;
@@ -2673,13 +2810,14 @@ function renderComplaintFeed() {
   const smartTag = (complaintSmartActive && complaintSmartOrder.length)
     ? ` · <span style="color:var(--accent2);">✨ smart search</span>` : '';
   if (countEl) countEl.innerHTML = `Showing ${shown.length} of ${filtered.length} complaints${smartTag}`;
-  if (cont) cont.innerHTML = shown.map(renderComplaintCard).join('') || `<div class="review-item" style="color:var(--muted);">No complaints match these filters.</div>`;
+  if (cont) cont.innerHTML = shown.map(c => renderComplaintCard(c, { resolveAction: true })).join('') || `<div class="review-item" style="color:var(--muted);">No complaints match these filters.</div>`;
   const btn = document.getElementById('complaint-load-more');
   if (btn) btn.style.display = filtered.length > complaintsShown ? 'block' : 'none';
   renderComplaintChips();
 }
 
-function renderComplaintCard(c) {
+function renderComplaintCard(c, opts) {
+  const allowResolve = !!(opts && opts.resolveAction);
   const timely = c.timely === 'Yes' ? `<span class="tag tag-positive">Timely: Yes</span>`
     : c.timely === 'No' ? `<span class="tag tag-negative">Timely: No</span>` : '';
   const urgTag = c.is_urgent ? `<span class="tag tag-urgent"><i class="bi bi-exclamation-triangle-fill"></i> Urgent</span>` : '';
@@ -2702,7 +2840,7 @@ function renderComplaintCard(c) {
     narrHtml = `<div class="review-text" style="color:var(--muted);font-style:italic;">No narrative provided in this complaint.</div>`;
   }
 
-  return `<div class="review-item ${c.is_urgent ? 'urgent' : ''}">
+  return `<div class="review-item ${c.is_urgent && !c.resolved ? 'urgent' : ''} ${c.resolved ? 'resolved-item' : ''}">
     <div class="review-header">
       <div>
         <div class="review-author">${escapeHtml(prod || 'Complaint')}</div>
@@ -2717,6 +2855,7 @@ function renderComplaintCard(c) {
     ${summaryHtml}
     ${respHtml}
     ${topicTags ? `<div class="review-tags" style="margin-top:8px;">${topicTags}</div>` : ''}
+    ${resolveControlsHtml('complaint', c, allowResolve)}
   </div>`;
 }
 
