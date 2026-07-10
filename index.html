@@ -369,6 +369,22 @@ body {
 .src-wallethub { background: rgba(188,140,255,.12); color: var(--purple); }
 .src-facebook { background: rgba(31,111,235,.12); color: var(--accent2); }
 
+/* Cross-channel badges (Home activity + Urgent triage) */
+.channel-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  white-space: nowrap;
+}
+.ch-review { background: rgba(31,111,235,.14); color: var(--accent2); }
+.ch-complaint { background: rgba(248,81,73,.14); color: var(--red); }
+
 /* keep wide tables contained instead of overflowing the page */
 .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .table-scroll .data-table th,
@@ -658,9 +674,19 @@ body {
     <div class="brand-sub">Voice of Customer</div>
   </div>
   <div class="sidebar-nav">
-    <div class="nav-section-label">Analytics</div>
     <div class="nav-item">
-      <a class="nav-link-item active" onclick="showPage('overview')">
+      <a class="nav-link-item active" onclick="showPage('home')">
+        <i class="bi bi-house-door"></i> Home
+      </a>
+    </div>
+    <div class="nav-item">
+      <a class="nav-link-item" onclick="showPage('urgent')">
+        <i class="bi bi-exclamation-triangle"></i> Urgent <span id="sidebar-urgent-badge" style="margin-left:auto;"></span>
+      </a>
+    </div>
+    <div class="nav-section-label">Reviews</div>
+    <div class="nav-item">
+      <a class="nav-link-item" onclick="showPage('overview')">
         <i class="bi bi-grid-1x2"></i> Overview
       </a>
     </div>
@@ -674,15 +700,9 @@ body {
         <i class="bi bi-geo-alt"></i> Branches
       </a>
     </div>
-    <div class="nav-section-label">Reviews</div>
     <div class="nav-item">
       <a class="nav-link-item" onclick="showPage('reviews')">
         <i class="bi bi-chat-left-text"></i> All Reviews
-      </a>
-    </div>
-    <div class="nav-item">
-      <a class="nav-link-item" onclick="showPage('urgent')">
-        <i class="bi bi-exclamation-triangle"></i> Urgent <span id="sidebar-urgent-badge" style="margin-left:auto;"></span>
       </a>
     </div>
     <div class="nav-item">
@@ -693,7 +713,7 @@ body {
     <div class="nav-section-label">Regulatory</div>
     <div class="nav-item">
       <a class="nav-link-item" onclick="showPage('complaints')">
-        <i class="bi bi-shield-exclamation"></i> CFPB Complaints <span id="sidebar-complaints-badge" style="margin-left:auto;"></span>
+        <i class="bi bi-shield-exclamation"></i> CFPB Complaints
       </a>
     </div>
   </div>
@@ -708,14 +728,76 @@ body {
 <div id="main">
   <div class="topbar">
     <div>
-      <div class="topbar-title" id="topbar-title">Overview</div>
+      <div class="topbar-title" id="topbar-title">Home</div>
       <div class="topbar-meta">Apple Bank for Savings · New York City · All locations</div>
     </div>
     <div id="urgent-indicator"></div>
   </div>
 
+  <!-- ===== HOME PAGE (cross-channel landing) ===== -->
+  <div id="page-home" class="page active">
+    <div class="section-title">Home</div>
+    <div class="section-sub">Cross-channel snapshot — reviews and complaints are measured separately (different scales and semantics); only attention and shared topics are unified here.</div>
+
+    <!-- Channel KPI strips (never blended) -->
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <div class="chart-card h-100">
+          <div class="card-title"><i class="bi bi-chat-left-text" style="margin-right:6px;color:var(--teal);"></i>Reviews</div>
+          <div class="card-sub">Customer reviews across platforms</div>
+          <div class="row g-2">
+            <div class="col-4"><div class="stat-card clickable" onclick="showPage('reviews')" title="Go to All Reviews"><div class="stat-label">Total</div><div class="stat-value" id="home-rev-total" style="color:var(--text)">—</div></div></div>
+            <div class="col-4"><div class="stat-card"><div class="stat-label">Avg Rating</div><div class="stat-value" id="home-rev-avg" style="color:var(--yellow)">—</div></div></div>
+            <div class="col-4"><div class="stat-card clickable" onclick="drillSentiment('positive')" title="View positive reviews"><div class="stat-label">Positive</div><div class="stat-value" id="home-rev-pos" style="color:var(--green)">—</div></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="chart-card h-100">
+          <div class="card-title"><i class="bi bi-shield-exclamation" style="margin-right:6px;color:var(--red);"></i>Complaints</div>
+          <div class="card-sub">CFPB regulatory complaints</div>
+          <div class="row g-2">
+            <div class="col-4"><div class="stat-card clickable" onclick="showPage('complaints')" title="Go to CFPB Complaints"><div class="stat-label">Total</div><div class="stat-value" id="home-comp-total" style="color:var(--text)">—</div></div></div>
+            <div class="col-4"><div class="stat-card"><div class="stat-label">Timely</div><div class="stat-value" id="home-comp-timely" style="color:var(--green)">—</div></div></div>
+            <div class="col-4"><div class="stat-card clickable" onclick="drillComplaintTopIssue()" title="View the top issue"><div class="stat-label">Top Issue</div><div class="stat-value" id="home-comp-issue" style="color:var(--yellow);font-size:13px;line-height:1.25;">—</div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Unified attention banner -->
+    <div class="chart-card mb-3 clickable" onclick="showPage('urgent')" title="Open the cross-channel triage queue" style="display:flex;align-items:center;justify-content:space-between;gap:12px;border-left:3px solid var(--red);">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <i class="bi bi-exclamation-triangle-fill" style="color:var(--red);font-size:22px;"></i>
+        <div>
+          <div style="font-size:15px;font-weight:600;color:var(--text);"><span id="home-urgent-count">0</span> items need attention</div>
+          <div style="font-size:12px;color:var(--muted);"><span id="home-urgent-breakdown">—</span> · cross-channel triage queue</div>
+        </div>
+      </div>
+      <i class="bi bi-arrow-right" style="color:var(--accent2);font-size:18px;"></i>
+    </div>
+
+    <!-- Shared topics + recent activity -->
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div class="chart-card h-100">
+          <div class="card-title">Topics Appearing in Reviews AND Complaints</div>
+          <div class="card-sub">Shared themes across both datasets — click to see the complaints, then jump to matching reviews</div>
+          <div id="crossover-list" style="margin-top:6px;"></div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="chart-card h-100">
+          <div class="card-title">Recent Activity</div>
+          <div class="card-sub">Newest items across both channels — click to drill into that item</div>
+          <div id="home-activity" style="margin-top:6px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== OVERVIEW PAGE ===== -->
-  <div id="page-overview" class="page active">
+  <div id="page-overview" class="page">
     <!-- KPI Row -->
     <div class="row g-3 mb-3">
       <div class="col-md-3 col-6">
@@ -961,8 +1043,14 @@ body {
 
   <!-- ===== URGENT PAGE ===== -->
   <div id="page-urgent" class="page">
-    <div class="section-title" style="color:var(--red)"><i class="bi bi-exclamation-triangle-fill"></i> Urgent Reviews</div>
-    <div class="section-sub">Reviews flagged for immediate attention — discrimination, fraud, wrong deposits, frozen accounts</div>
+    <div class="section-title" style="color:var(--red)"><i class="bi bi-exclamation-triangle-fill"></i> Urgent</div>
+    <div class="section-sub">Cross-channel triage queue — urgent reviews and complaints in one list, highest priority first. Each card keeps its own channel's drill-downs.</div>
+    <div class="filter-bar mb-2">
+      <button class="filter-btn uch-btn active" onclick="setUrgentChannel('all', this)">All channels</button>
+      <button class="filter-btn uch-btn" onclick="setUrgentChannel('reviews', this)">Reviews only</button>
+      <button class="filter-btn uch-btn" onclick="setUrgentChannel('complaints', this)">Complaints only</button>
+      <span id="urgent-count" style="font-size:12px;color:var(--muted);margin-left:auto;align-self:center;"></span>
+    </div>
     <div id="urgent-container"></div>
   </div>
 
@@ -1064,13 +1152,6 @@ body {
           <div id="complaint-urgency-list" style="margin-top:10px;"></div>
         </div>
       </div>
-    </div>
-
-    <!-- Topic crossover -->
-    <div class="chart-card mb-3">
-      <div class="card-title">Topics Appearing in Reviews AND Complaints</div>
-      <div class="card-sub">Shared themes across both datasets — click to see the complaints, then jump to the matching reviews</div>
-      <div id="crossover-list" style="margin-top:6px;"></div>
     </div>
 
     <!-- Complaint feed -->
@@ -1238,12 +1319,12 @@ async function loadReviews() {
     applyDashboardMetrics();
     initOverviewCharts();
     initSentimentCharts();
-    renderUrgent();
     renderBranches();
     renderStaff();
     renderSourcePills();
     renderReviews();
-    if (complaintsLoaded) renderComplaintCrossover(); // reviews arrived after complaints — refresh shared-topics
+    renderHome();          // cross-channel landing (defensive if complaints not loaded yet)
+    renderUrgentQueue();   // cross-channel triage
   } finally {
     document.getElementById("loading-overlay").classList.add("hidden");
   }
@@ -1258,10 +1339,11 @@ function showPage(name) {
   document.getElementById('page-' + name).classList.add('active');
   const navEl = document.querySelector(`[onclick="showPage('${name}')"]`);
   if (navEl) navEl.classList.add('active');
-  const titles = { overview: 'Overview', sentiment: 'Sentiment Analysis', branches: 'Branch Performance', reviews: 'All Reviews', urgent: 'Urgent Reviews', staff: 'Staff Mentions', complaints: 'CFPB Complaints' };
+  const titles = { home: 'Home', overview: 'Overview', sentiment: 'Sentiment Analysis', branches: 'Branch Performance', reviews: 'All Reviews', urgent: 'Urgent', staff: 'Staff Mentions', complaints: 'CFPB Complaints' };
   document.getElementById('topbar-title').textContent = titles[name] || name;
+  if (name === 'home') renderHome();
   if (name === 'reviews' && !reviewsInitialized) initReviews();
-  if (name === 'urgent') renderUrgent();
+  if (name === 'urgent') renderUrgentQueue();
   if (name === 'staff') renderStaff();
   if (name === 'branches') renderBranches();
   if (name === 'complaints') renderComplaints();
@@ -1339,6 +1421,7 @@ function matchChip(r, chip) {
     case 'branch': return (r.branch_address || r.branch_name) === chip.value;
     case 'month': return monthKey(r.review_date) === chip.value;
     case 'rating': return Number.isFinite(r.rating) && Math.round(r.rating) === Number(chip.value);
+    case 'id': return String(r.id) === String(chip.value);
     default: return true;
   }
 }
@@ -1350,6 +1433,7 @@ function chipLabel(chip) {
     staff_sentiment: 'Staff sentiment', branch: 'Branch', month: 'Month', rating: 'Rating',
     year: 'Year', issue: 'Issue', product: 'Product', timely: 'Timely', state: 'State'
   };
+  if (chip.type === 'id') return 'Item'; // single-item drill from Home — don't render the raw id
   let v = chip.value;
   if (chip.type === 'month') v = monthLabel(chip.value);
   if (chip.type === 'priority') v = 'P' + chip.value;
@@ -1774,31 +1858,126 @@ async function runSmartSearch() {
 // ============================================================
 // URGENT PAGE
 // ============================================================
-function renderUrgent() {
-  const urgent = REVIEWS.filter(r => r.is_urgent).sort((a,b) => ts(b) - ts(a));
-  const reasonLabels = { discrimination: 'Discrimination', money_deposited_wrong_account: 'Wrong Deposit', fraud_mention: 'Fraud', account_frozen: 'Account Frozen' };
-  document.getElementById('urgent-container').innerHTML = urgent.map(r => `
-    <div class="urgent-card">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;gap:10px;">
-        <div>
-          <div class="review-author">${r.author || 'Anonymous'}</div>
-          <div class="review-meta">${r.review_date || ''} · ${r.branch_address || r.branch_name || 'No branch'} · ${r.source}</div>
-        </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;">
-          <span class="priority-dot p${r.response_priority}" style="width:10px;height:10px;display:inline-block;"></span>
-          <span style="font-size:11px;color:var(--red);">Priority ${r.response_priority}</span>
-        </div>
-      </div>
-      ${r.urgency_reason ? `<div style="margin-bottom:8px;"><span class="urgent-reason-badge">${reasonLabels[r.urgency_reason] || r.urgency_reason}</span></div>` : ''}
-      <div class="review-text" style="margin-bottom:8px;">${r.review_text || ''}</div>
-      ${r.ai_summary ? `<div class="ai-summary-text"><i class="bi bi-cpu" style="margin-right:4px;"></i>${r.ai_summary}</div>` : ''}
-      ${r.review_url ? `<div style="margin-top:10px;"><a href="${r.review_url}" target="_blank" style="font-size:12px;color:var(--accent2);"><i class="bi bi-box-arrow-up-right"></i> View original</a></div>` : ''}
-    </div>
-  `).join('');
+// ============================================================
+// CROSS-CHANNEL ATTENTION  (Home + Urgent — unify, never blend metrics)
+// ============================================================
+let urgentChannel = 'all'; // 'all' | 'reviews' | 'complaints' (local view state, NOT drill chips)
 
-  // Sidebar badge
+// Combined urgent counters: topbar badge, sidebar badge, Home banner. Called from both loaders.
+function updateAttention() {
+  const rev = REVIEWS.filter(r => r.is_urgent).length;
+  const comp = COMPLAINTS.filter(c => c.is_urgent).length;
+  const total = rev + comp;
+  const ind = document.getElementById('urgent-indicator');
+  if (ind) ind.innerHTML = total
+    ? `<div class="badge-urgent" onclick="showPage('urgent')" style="cursor:pointer;"><i class="bi bi-exclamation-triangle-fill"></i> ${total} Urgent</div>`
+    : '';
   const badge = document.getElementById('sidebar-urgent-badge');
-  if (badge) badge.innerHTML = `<span style="background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:700;">${urgent.length}</span>`;
+  if (badge) badge.innerHTML = total
+    ? `<span style="background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:700;">${total}</span>`
+    : '';
+  const hc = document.getElementById('home-urgent-count'); if (hc) hc.textContent = total;
+  const hb = document.getElementById('home-urgent-breakdown');
+  if (hb) hb.textContent = `${rev} review${rev === 1 ? '' : 's'} · ${comp} complaint${comp === 1 ? '' : 's'}`;
+}
+
+// ---- Home landing ----
+function renderHome() {
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  // Reviews strip
+  const rTotal = REVIEWS.length;
+  const rPos = REVIEWS.filter(r => r.sentiment === 'positive').length;
+  const avg = avgRating(REVIEWS);
+  set('home-rev-total', rTotal);
+  set('home-rev-avg', avg ? avg.toFixed(1) : 'N/A');
+  set('home-rev-pos', rTotal ? safePct(rPos, rTotal) + '%' : '0%');
+  // Complaints strip
+  const cTotal = COMPLAINTS.length;
+  const ty = COMPLAINTS.filter(c => c.timely === 'Yes').length;
+  const tn = COMPLAINTS.filter(c => c.timely === 'No').length;
+  const issues = Object.entries(countBy(COMPLAINTS.filter(c => c.issue), c => c.issue)).sort((a, b) => b[1] - a[1]);
+  if (issues.length) _topComplaintIssue = issues[0][0]; // keep the Top Issue drill working from Home
+  set('home-comp-total', cTotal);
+  set('home-comp-timely', (ty + tn) ? safePct(ty, ty + tn) + '%' : 'N/A');
+  set('home-comp-issue', issues.length ? issues[0][0] : '—');
+
+  updateAttention();
+  renderComplaintCrossover(); // #crossover-list now lives on Home
+  renderHomeActivity();
+}
+
+function renderHomeActivity() {
+  const box = document.getElementById('home-activity');
+  if (!box) return;
+  const items = [];
+  REVIEWS.forEach(r => items.push({ channel: 'review', time: ts(r), item: r }));
+  COMPLAINTS.forEach(c => items.push({ channel: 'complaint', time: cts(c), item: c }));
+  items.sort((a, b) => b.time - a.time);
+  const rowHtml = (badge, handler, id, date, urgent, snippet) =>
+    `<div class="clickable" data-id="${escAttr(String(id))}" onclick="${handler}(this)" style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);">
+      <span class="channel-badge ${badge.cls}">${badge.label}</span>
+      <span style="font-size:11px;color:var(--muted);white-space:nowrap;">${date || ''}</span>
+      ${urgent ? '<span class="priority-dot p5" title="Urgent"></span>' : ''}
+      <span style="font-size:12px;color:#cdd9e5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(snippet)}${snippet.length >= 80 ? '…' : ''}</span>
+    </div>`;
+  box.innerHTML = items.slice(0, 12).map(e => {
+    if (e.channel === 'review') {
+      const r = e.item;
+      return rowHtml({ cls: 'ch-review', label: 'Review' }, 'drillHomeReview', r.id, r.review_date, r.is_urgent, String(r.review_text || r.ai_summary || '').slice(0, 80));
+    }
+    const c = e.item;
+    return rowHtml({ cls: 'ch-complaint', label: 'Complaint' }, 'drillHomeComplaint', c.id, c.date_received, c.is_urgent, String(c.narrative || c.ai_summary || c.issue || '').slice(0, 80));
+  }).join('') || `<span style="color:var(--muted);font-size:12px;">No activity yet.</span>`;
+}
+
+function drillHomeReview(el) { const r = REVIEWS.find(x => String(x.id) === el.dataset.id); if (r) openDrill([{ type: 'id', value: r.id }], r.author || 'Review'); }
+function drillHomeComplaint(el) { const c = COMPLAINTS.find(x => String(x.id) === el.dataset.id); if (c) openComplaintDrill([{ type: 'id', value: c.id }], [c.product, c.issue].filter(Boolean).join(' · ') || 'Complaint'); }
+
+// ---- Urgent cross-channel triage queue ----
+function setUrgentChannel(v, btn) {
+  urgentChannel = v;
+  document.querySelectorAll('#page-urgent .uch-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderUrgentQueue();
+}
+
+// A channel badge + priority label sits above each native card (keeps each card's own drill handlers).
+function urgentItemHtml(entry) {
+  const badge = entry.channel === 'review'
+    ? '<span class="channel-badge ch-review"><i class="bi bi-chat-left-text"></i> Review</span>'
+    : '<span class="channel-badge ch-complaint"><i class="bi bi-shield-exclamation"></i> Complaint</span>';
+  const p = entry.prio;
+  const head = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">${badge}<span style="font-size:11px;color:var(--red);font-weight:600;">Priority ${p}</span></div>`;
+  const card = entry.channel === 'review' ? renderReviewCard(entry.item) : renderComplaintCard(entry.item);
+  return `<div style="margin-bottom:14px;">${head}${card}</div>`;
+}
+
+function renderUrgentQueue() {
+  const entries = [];
+  if (urgentChannel === 'all' || urgentChannel === 'reviews')
+    REVIEWS.filter(r => r.is_urgent).forEach(r => entries.push({ channel: 'review', item: r, prio: Number(r.response_priority || 1), time: ts(r) }));
+  if (urgentChannel === 'all' || urgentChannel === 'complaints')
+    COMPLAINTS.filter(c => c.is_urgent).forEach(c => entries.push({ channel: 'complaint', item: c, prio: Number(c.response_priority || 1), time: cts(c) }));
+  entries.sort((a, b) => (b.prio - a.prio) || (b.time - a.time));
+
+  const rev = entries.filter(e => e.channel === 'review').length;
+  const comp = entries.filter(e => e.channel === 'complaint').length;
+  const countEl = document.getElementById('urgent-count');
+  if (countEl) countEl.textContent = `${entries.length} urgent · ${rev} review${rev === 1 ? '' : 's'} · ${comp} complaint${comp === 1 ? '' : 's'}`;
+
+  const cont = document.getElementById('urgent-container');
+  if (!cont) return;
+  if (!entries.length) { cont.innerHTML = `<div class="review-item" style="color:var(--muted);">No urgent items in this view.</div>`; return; }
+
+  let html = '', lastP = null;
+  entries.forEach(e => {
+    if (e.prio !== lastP) {
+      lastP = e.prio;
+      html += `<div style="display:flex;align-items:center;gap:8px;margin:16px 0 10px;"><span class="priority-dot p${e.prio}" style="width:10px;height:10px;display:inline-block;"></span><span style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Priority ${e.prio}</span></div>`;
+    }
+    html += urgentItemHtml(e);
+  });
+  cont.innerHTML = html;
 }
 
 // ============================================================
@@ -1926,10 +2105,7 @@ function applyDashboardMetrics() {
   const footer = document.getElementById("footer-stats");
   if (footer) footer.innerHTML = `${total} reviews · ${sources} source${sources === 1 ? "" : "s"}<br>Last update: ${lastUpdate}`;
 
-  document.getElementById("urgent-indicator").innerHTML = `
-    <div class="badge-urgent" onclick="showPage('urgent')" style="cursor:pointer;">
-      <i class="bi bi-exclamation-triangle-fill"></i> ${urgent} Urgent
-    </div>`;
+  updateAttention();
 }
 
 function initOverviewCharts() {
@@ -2263,6 +2439,8 @@ async function loadComplaints() {
   COMPLAINTS = (data || []).map(normalizeComplaint);
   complaintsLoaded = true;
   renderComplaints();
+  renderHome();          // refresh cross-channel landing now that complaints are in
+  renderUrgentQueue();   // complaints join the triage queue
 }
 
 // ---- Complaint helpers ----
@@ -2308,6 +2486,7 @@ function matchComplaintChip(c, chip) {
     case 'topic': return (c.topics || []).some(t => String(t).toLowerCase() === String(chip.value).toLowerCase());
     case 'timely': return (c.timely || '') === chip.value;
     case 'state': return (c.state || '') === chip.value;
+    case 'id': return String(c.id) === String(chip.value);
     default: return true;
   }
 }
@@ -2352,9 +2531,7 @@ function renderComplaintKPIs() {
   set('kpi-complaints-timely-sub', timelyDenom ? `${timelyYes} of ${timelyDenom} on time` : 'No data');
   set('kpi-complaints-topissue', _topComplaintIssue || '—');
   set('kpi-complaints-topissue-sub', issueEntries.length ? `${issueEntries[0][1]} complaint${issueEntries[0][1] === 1 ? '' : 's'}` : '');
-
-  const badge = document.getElementById('sidebar-complaints-badge');
-  if (badge) badge.innerHTML = urgent ? `<span style="background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:700;">${urgent}</span>` : '';
+  // (unified cross-channel urgent badge is owned by updateAttention())
 }
 
 function renderComplaintCharts() {
