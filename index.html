@@ -1159,7 +1159,10 @@ body {
       <div class="card-title" style="margin-bottom:12px;">Complaint Feed</div>
       <div class="filter-bar mb-2">
         <input type="text" class="search-input" id="complaint-search" placeholder="🔍  Search narratives, issues, topics…" oninput="onComplaintSearchInput()">
+        <button class="filter-btn" id="complaint-smart-search-btn" onclick="toggleComplaintSmartSearch(this)" title="Hybrid semantic + keyword search — finds complaints by meaning, not just exact words">✨ Smart Search</button>
+        <span id="complaint-smart-status" style="font-size:11px;color:var(--muted);"></span>
         <select id="complaint-sort" class="sort-select" onchange="setComplaintSort(this.value)">
+          <option value="relevance" id="complaint-sort-relevance-opt" hidden>Relevance</option>
           <option value="newest">Newest first</option>
           <option value="oldest">Oldest first</option>
           <option value="priority">Priority (high → low)</option>
@@ -1716,6 +1719,32 @@ function reviewIdKey(r) {
   return r.review_key != null ? String(r.review_key) : 'id:' + r.id;
 }
 
+// ---- Shared Reciprocal Rank Fusion helpers (used by both reviews and complaints) ----
+// Merge a keyword rank map and a semantic rank map (each key -> 0-based rank) into one
+// key -> score map. K=60, weighted 0.6 keyword / 0.4 semantic, one-sided scores kept.
+function rrfScores(kwRank, semRank) {
+  const K = 60;
+  const scores = new Map();
+  new Set([...kwRank.keys(), ...semRank.keys()]).forEach(id => {
+    let s = 0;
+    if (kwRank.has(id)) s += 0.6 * (1 / (K + kwRank.get(id)));
+    if (semRank.has(id)) s += 0.4 * (1 / (K + semRank.get(id)));
+    scores.set(id, s);
+  });
+  return scores;
+}
+
+// Resolve fused scores back to items, ordered by RRF score desc. keyFn maps an item to
+// the same key used in the rank maps; items absent from the score map are dropped.
+function rrfOrder(items, keyFn, scores) {
+  const byKey = new Map();
+  items.forEach(it => byKey.set(keyFn(it), it));
+  return [...scores.keys()]
+    .map(id => byKey.get(id))
+    .filter(Boolean)
+    .sort((a, b) => scores.get(keyFn(b)) - scores.get(keyFn(a)));
+}
+
 function setSmartStatus(msg) {
   const el = document.getElementById('smart-status');
   if (el) el.textContent = msg || '';
@@ -1819,23 +1848,10 @@ async function runSmartSearch() {
       .sort((a, b) => (b.hits - a.hits) || (ts(b.r) - ts(a.r)))
       .forEach((o, i) => kwRank.set(reviewIdKey(o.r), i));
 
-    // Reciprocal Rank Fusion over the union of both lists (K=60), one-sided scores kept.
-    const K = 60;
-    const scores = new Map();
-    new Set([...kwRank.keys(), ...semRank.keys()]).forEach(id => {
-      let s = 0;
-      if (kwRank.has(id)) s += 0.6 * (1 / (K + kwRank.get(id)));
-      if (semRank.has(id)) s += 0.4 * (1 / (K + semRank.get(id)));
-      scores.set(id, s);
-    });
-
-    // Resolve ids back to review objects and order by RRF score desc.
-    const byKey = new Map();
-    REVIEWS.forEach(r => byKey.set(reviewIdKey(r), r));
-    smartOrder = [...scores.keys()]
-      .map(id => byKey.get(id))
-      .filter(Boolean)
-      .sort((a, b) => scores.get(reviewIdKey(b)) - scores.get(reviewIdKey(a)));
+    // Reciprocal Rank Fusion over the union of both lists (shared helper), then resolve
+    // ids back to review objects ordered by RRF score desc.
+    const scores = rrfScores(kwRank, semRank);
+    smartOrder = rrfOrder(REVIEWS, reviewIdKey, scores);
     smartActive = true;
 
     // Relevance ordering is only meaningful now — auto-select it.
@@ -2391,6 +2407,19 @@ let complaintTimePreset = 'all';  // 'all' | '1y' | '5y' | 'ytd'
 let complaintsShown = 15;
 let _topComplaintIssue = null;    // cached for the Top Issue KPI drill
 
+// ---- Complaints smart (hybrid) search state — fully independent of the reviews toggle ----
+let complaintSmartSearch = false;       // toggle on/off
+let complaintSmartActive = false;       // true when smart results currently drive the feed
+let complaintSmartOrder = [];           // union of keyword+semantic hits, ordered by RRF score
+let complaintSmartSeq = 0;              // guards against out-of-order async responses
+let complaintSearchDebounceTimer = null;
+
+// Stable key matching a complaint against the RPC's complaint_id. Keyword-only hits with no
+// complaint_id get an "id:"-prefixed key so they never collide with real complaint_ids.
+function complaintIdKey(c) {
+  return c.complaint_id != null ? String(c.complaint_id) : 'id:' + c.id;
+}
+
 function normalizeComplaint(c) {
   return {
     id: c.id ?? c.complaint_id ?? crypto.randomUUID(),
@@ -2491,20 +2520,35 @@ function matchComplaintChip(c, chip) {
   }
 }
 
+// Drill chips and time preset — these always win, in both keyword and smart modes.
+function passesComplaintFilters(c, cutoff) {
+  const matchChips = complaintChips.every(ch => matchComplaintChip(c, ch));
+  const matchTime = cutoff === null || cts(c) >= cutoff;
+  return matchChips && matchTime;
+}
+
 function getFilteredComplaints() {
-  const search = (document.getElementById('complaint-search')?.value || '').toLowerCase();
   const cutoff = complaintCutoff();
+
+  // Smart mode: start from the RRF-ordered union of keyword+semantic hits, then apply the
+  // same chips/time filters on top (filters win, req 4).
+  if (complaintSmartActive && complaintSmartOrder.length) {
+    const list = complaintSmartOrder.filter(c => passesComplaintFilters(c, cutoff));
+    // RRF order is baked into complaintSmartOrder; honor an explicit non-relevance sort override.
+    return complaintSort === 'relevance' ? list : sortComplaints(list, complaintSort);
+  }
+
+  // Keyword mode: text query is a hard filter (unchanged behavior).
+  const search = (document.getElementById('complaint-search')?.value || '').toLowerCase();
   const filtered = COMPLAINTS.filter(c => {
     const matchSearch = !search ||
       (c.narrative && c.narrative.toLowerCase().includes(search)) ||
       (c.ai_summary && c.ai_summary.toLowerCase().includes(search)) ||
       (c.issue && c.issue.toLowerCase().includes(search)) ||
       (c.topics && c.topics.join(' ').toLowerCase().includes(search));
-    const matchChips = complaintChips.every(ch => matchComplaintChip(c, ch));
-    const matchTime = cutoff === null || cts(c) >= cutoff;
-    return matchSearch && matchChips && matchTime;
+    return passesComplaintFilters(c, cutoff) && matchSearch;
   });
-  return sortComplaints(filtered, complaintSort);
+  return sortComplaints(filtered, complaintSort === 'relevance' ? 'newest' : complaintSort);
 }
 
 // ---- Render ----
@@ -2626,7 +2670,9 @@ function renderComplaintFeed() {
   }
   const filtered = getFilteredComplaints();
   const shown = filtered.slice(0, complaintsShown);
-  if (countEl) countEl.textContent = `Showing ${shown.length} of ${filtered.length} complaints`;
+  const smartTag = (complaintSmartActive && complaintSmartOrder.length)
+    ? ` · <span style="color:var(--accent2);">✨ smart search</span>` : '';
+  if (countEl) countEl.innerHTML = `Showing ${shown.length} of ${filtered.length} complaints${smartTag}`;
   if (cont) cont.innerHTML = shown.map(renderComplaintCard).join('') || `<div class="review-item" style="color:var(--muted);">No complaints match these filters.</div>`;
   const btn = document.getElementById('complaint-load-more');
   if (btn) btn.style.display = filtered.length > complaintsShown ? 'block' : 'none';
@@ -2698,8 +2744,116 @@ function removeComplaintChip(i) {
   renderComplaintFeed();
 }
 
-function onComplaintSearchInput() { complaintsShown = 15; renderComplaintFeed(); }
+function onComplaintSearchInput() {
+  complaintsShown = 15;
+  if (!complaintSmartSearch) { renderComplaintFeed(); return; }
+
+  clearTimeout(complaintSearchDebounceTimer);
+  const q = (document.getElementById('complaint-search').value || '').trim();
+  if (!q) {
+    complaintSmartActive = false;
+    complaintSmartOrder = [];
+    complaintSmartSeq++;
+    setComplaintSmartStatus('Type to search by meaning…');
+    renderComplaintFeed();
+    return;
+  }
+  complaintSearchDebounceTimer = setTimeout(runComplaintSmartSearch, 400);
+}
 function setComplaintSort(v) { complaintSort = v; renderComplaintFeed(); }
+
+// ---- Complaints smart (hybrid) search — reuses the shared model pipeline + RRF helpers ----
+function setComplaintSmartStatus(msg) {
+  const el = document.getElementById('complaint-smart-status');
+  if (el) el.textContent = msg || '';
+}
+
+function toggleComplaintSmartSearch(btn) {
+  complaintSmartSearch = !complaintSmartSearch;
+  btn.classList.toggle('active', complaintSmartSearch);
+  const relOpt = document.getElementById('complaint-sort-relevance-opt');
+  if (relOpt) relOpt.hidden = !complaintSmartSearch;
+  complaintsShown = 15;
+
+  if (complaintSmartSearch) {
+    const q = (document.getElementById('complaint-search').value || '').trim();
+    if (q) runComplaintSmartSearch();
+    else setComplaintSmartStatus('Type to search by meaning…');
+  } else {
+    // Back to keyword mode: drop smart results and reset the relevance sort.
+    complaintSmartActive = false;
+    complaintSmartOrder = [];
+    complaintSmartSeq++; // cancel any in-flight smart search
+    setComplaintSmartStatus('');
+    if (complaintSort === 'relevance') {
+      complaintSort = 'newest';
+      const sortEl = document.getElementById('complaint-sort');
+      if (sortEl) sortEl.value = 'newest';
+    }
+    renderComplaintFeed();
+  }
+}
+
+async function runComplaintSmartSearch() {
+  const q = (document.getElementById('complaint-search').value || '').trim();
+  if (!complaintSmartSearch || !q) { complaintSmartActive = false; renderComplaintFeed(); return; }
+
+  const seq = ++complaintSmartSeq;
+  try {
+    if (!embedderPromise) setComplaintSmartStatus('✨ loading model…');
+    const embedding = await embedQuery(q);              // shared pipeline — loaded at most once
+    if (seq !== complaintSmartSeq) return;              // a newer query superseded this one
+
+    setComplaintSmartStatus('✨ searching…');
+    const { data, error } = await supabaseClient.rpc('search_complaints', {
+      query_embedding: embedding,
+      match_count: 50
+    });
+    if (error) throw error;
+    if (seq !== complaintSmartSeq) return;
+
+    // Semantic ranks (RPC returns rows ordered by similarity desc), keyed by complaint_id.
+    const semRank = new Map();
+    (data || []).forEach((row, i) => {
+      if (row.complaint_id != null) semRank.set(String(row.complaint_id), i);
+    });
+
+    // Keyword ranks over narrative/ai_summary/issue/sub_issue/topics, ranked by #matched fields then recency.
+    const ql = q.toLowerCase();
+    const kwRank = new Map();
+    COMPLAINTS.map(c => {
+      let hits = 0;
+      if (c.narrative && c.narrative.toLowerCase().includes(ql)) hits++;
+      if (c.ai_summary && c.ai_summary.toLowerCase().includes(ql)) hits++;
+      if (c.issue && c.issue.toLowerCase().includes(ql)) hits++;
+      if (c.sub_issue && c.sub_issue.toLowerCase().includes(ql)) hits++;
+      if (c.topics && c.topics.join(' ').toLowerCase().includes(ql)) hits++;
+      return { c, hits };
+    }).filter(o => o.hits > 0)
+      .sort((a, b) => (b.hits - a.hits) || (cts(b.c) - cts(a.c)))
+      .forEach((o, i) => kwRank.set(complaintIdKey(o.c), i));
+
+    // Same RRF fusion + ordering helpers as the reviews page.
+    const scores = rrfScores(kwRank, semRank);
+    complaintSmartOrder = rrfOrder(COMPLAINTS, complaintIdKey, scores);
+    complaintSmartActive = true;
+
+    // Relevance ordering is only meaningful now — auto-select it.
+    complaintSort = 'relevance';
+    const sortEl = document.getElementById('complaint-sort');
+    if (sortEl) sortEl.value = 'relevance';
+
+    setComplaintSmartStatus('');
+    renderComplaintFeed();
+  } catch (e) {
+    // Never break the page — fall back silently to keyword-only.
+    console.warn('Complaint smart search failed, falling back to keyword search:', e);
+    complaintSmartActive = false;
+    complaintSmartOrder = [];
+    setComplaintSmartStatus('⚠ smart search unavailable');
+    renderComplaintFeed();
+  }
+}
 
 function setComplaintTime(v, btn) {
   complaintTimePreset = v;
