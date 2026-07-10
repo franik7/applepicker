@@ -218,6 +218,7 @@ body {
 .review-item:hover { border-color: var(--accent2); }
 .review-item.urgent { border-left: 3px solid var(--red); }
 .review-item.resolved-item { border-left: 3px solid rgba(63,185,80,.5); }
+.urgent-entry.needs-review .review-item { border-left: 3px solid var(--yellow); }
 .review-header {
   display: flex;
   align-items: flex-start;
@@ -1108,11 +1109,11 @@ body {
         </div>
       </div>
       <div class="col-md-3 col-6">
-        <div class="stat-card clickable" onclick="drillComplaintUrgent()" title="View urgent complaints">
-          <div class="stat-icon"><i class="bi bi-exclamation-circle"></i></div>
-          <div class="stat-label">Urgent</div>
-          <div class="stat-value" id="kpi-complaints-urgent" style="color:var(--red)">—</div>
-          <div class="stat-sub">Requiring attention</div>
+        <div class="stat-card clickable" onclick="drillComplaintUrgent()" title="View complaints needing review">
+          <div class="stat-icon"><i class="bi bi-eye"></i></div>
+          <div class="stat-label">Needs Review</div>
+          <div class="stat-value" id="kpi-complaints-urgent" style="color:var(--yellow)">—</div>
+          <div class="stat-sub">Recent &amp; unresolved</div>
         </div>
       </div>
       <div class="col-md-3 col-6">
@@ -1348,6 +1349,7 @@ async function loadReviews() {
     renderUrgentQueue();   // cross-channel triage
   } finally {
     document.getElementById("loading-overlay").classList.add("hidden");
+    restorePageFromHash();  // honor a bookmarked/refreshed #page now that data is in
   }
 }
 
@@ -1368,7 +1370,34 @@ function showPage(name) {
   if (name === 'staff') renderStaff();
   if (name === 'branches') renderBranches();
   if (name === 'complaints') renderComplaints();
+  // Persist the active page in the URL hash (guard against redundant sets → no dup history).
+  if (!navigatingFromHash && location.hash.slice(1) !== name) location.hash = name;
 }
+
+// ---- Page persistence via URL hash (no localStorage permitted in this app) ----
+const DEFAULT_PAGE = 'home';
+let navigatingFromHash = false;   // true while a hashchange drives showPage (prevents loops)
+
+function isValidPage(name) { return !!name && !!document.getElementById('page-' + name); }
+
+// Called once after sign-in + data load: honor a #page hash, else keep the default landing page.
+function restorePageFromHash() {
+  const name = location.hash.slice(1);
+  if (isValidPage(name)) showPage(name);
+}
+
+// Browser back/forward navigates between pages. Ignored on the login screen; the hash is
+// preserved through auth so it still applies once the app starts.
+window.addEventListener('hashchange', () => {
+  if (!appStarted) return;
+  const name = location.hash.slice(1) || DEFAULT_PAGE;
+  if (!isValidPage(name)) return;
+  const active = document.querySelector('.page.active');
+  if (active && active.id === 'page-' + name) return;  // already here — avoid re-render loop
+  navigatingFromHash = true;
+  showPage(name);
+  navigatingFromHash = false;
+});
 
 // ============================================================
 // CHART.JS GLOBAL CONFIG
@@ -1452,7 +1481,8 @@ function chipLabel(chip) {
     sentiment: 'Sentiment', source: 'Source', category: 'Category', priority: 'Priority',
     topic: 'Topic', urgency_reason: 'Urgency', urgent: 'Flag', staff: 'Staff',
     staff_sentiment: 'Staff sentiment', branch: 'Branch', month: 'Month', rating: 'Rating',
-    year: 'Year', issue: 'Issue', product: 'Product', timely: 'Timely', state: 'State'
+    year: 'Year', issue: 'Issue', product: 'Product', timely: 'Timely', state: 'State',
+    needs_review: 'Status'
   };
   if (chip.type === 'id') return 'Item'; // single-item drill from Home — don't render the raw id
   let v = chip.value;
@@ -1460,6 +1490,7 @@ function chipLabel(chip) {
   if (chip.type === 'priority') v = 'P' + chip.value;
   if (chip.type === 'rating') v = chip.value + '★';
   if (chip.type === 'urgent') v = 'Urgent';
+  if (chip.type === 'needs_review') v = 'Needs review';
   if (chip.type === 'urgency_reason') v = String(chip.value).replaceAll('_', ' ');
   return `${names[chip.type] || chip.type}: ${v}`;
 }
@@ -1909,8 +1940,10 @@ function withinUrgentWindow(timeMs) {
 function isActionableReview(r) {
   return r.is_urgent && !r.resolved && withinUrgentWindow(ts(r));
 }
+// Every recent, unresolved CFPB complaint warrants internal review regardless of AI severity —
+// so is_urgent is intentionally NOT required here (unlike reviews).
 function isActionableComplaint(c) {
-  return c.is_urgent && !c.resolved && withinUrgentWindow(cts(c));
+  return !c.resolved && withinUrgentWindow(cts(c));
 }
 
 // ---- Resolve workflow (optimistic, RPC-backed) ----
@@ -2066,13 +2099,22 @@ function setUrgentChannel(v, btn) {
 
 // A channel badge + priority label sits above each native card (keeps each card's own drill handlers).
 function urgentItemHtml(entry, opts) {
-  const badge = entry.channel === 'review'
+  const isReview = entry.channel === 'review';
+  const badge = isReview
     ? '<span class="channel-badge ch-review"><i class="bi bi-chat-left-text"></i> Review</span>'
     : '<span class="channel-badge ch-complaint"><i class="bi bi-shield-exclamation"></i> Complaint</span>';
   const p = entry.prio;
-  const head = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">${badge}<span style="font-size:11px;color:var(--red);font-weight:600;">Priority ${p}</span></div>`;
-  const card = entry.channel === 'review' ? renderReviewCard(entry.item, opts) : renderComplaintCard(entry.item, opts);
-  return `<div style="margin-bottom:14px;">${head}${card}</div>`;
+  // Recent complaints that aren't AI-flagged urgent get a neutral yellow "needs review" treatment
+  // instead of the red urgent styling; is_urgent items (and all reviews) stay red.
+  const needsReview = entry.channel === 'complaint' && !entry.item.is_urgent;
+  const label = needsReview
+    ? `<span style="font-size:11px;color:var(--yellow);font-weight:600;"><i class="bi bi-eye"></i> Needs review · P${p}</span>`
+    : `<span style="font-size:11px;color:var(--red);font-weight:600;">Priority ${p}</span>`;
+  const head = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">${badge}${label}</div>`;
+  const card = isReview ? renderReviewCard(entry.item, opts) : renderComplaintCard(entry.item, opts);
+  // Yellow accent only when not resolved (resolved keeps its green resolved-item border).
+  const wrapCls = 'urgent-entry' + (needsReview && !entry.item.resolved ? ' needs-review' : '');
+  return `<div class="${wrapCls}" style="margin-bottom:14px;">${head}${card}</div>`;
 }
 
 function priorityHeader(p) {
@@ -2090,13 +2132,15 @@ function renderUrgentGroups(entries) {
 
 function renderUrgentQueue() {
   const inChannel = ch => urgentChannel === 'all' || urgentChannel === ch;
-  // actionable = flagged urgent, in-window, unresolved. other = urgent but windowed-out or resolved.
+  // actionable = in-window & unresolved. other = the rest of the attention-relevant universe
+  // (recently resolved, or aged-out urgent items) — surfaced in the footer, never hidden-hidden.
   const actionable = [], other = [];
   if (inChannel('reviews')) REVIEWS.filter(r => r.is_urgent).forEach(r => {
     const e = { channel: 'review', item: r, prio: Number(r.response_priority || 1), time: ts(r) };
     (isActionableReview(r) ? actionable : other).push(e);
   });
-  if (inChannel('complaints')) COMPLAINTS.filter(c => c.is_urgent).forEach(c => {
+  // Complaints universe: any recent complaint (needs review) plus any AI-flagged urgent one.
+  if (inChannel('complaints')) COMPLAINTS.filter(c => c.is_urgent || withinUrgentWindow(cts(c))).forEach(c => {
     const e = { channel: 'complaint', item: c, prio: Number(c.response_priority || 1), time: cts(c) };
     (isActionableComplaint(c) ? actionable : other).push(e);
   });
@@ -2649,6 +2693,7 @@ function matchComplaintChip(c, chip) {
     case 'product': return c.product === chip.value;
     case 'urgency_reason': return c.is_urgent && (c.urgency_reason || 'Urgent') === chip.value;
     case 'urgent': return c.is_urgent;
+    case 'needs_review': return isActionableComplaint(c);
     case 'topic': return (c.topics || []).some(t => String(t).toLowerCase() === String(chip.value).toLowerCase());
     case 'timely': return (c.timely || '') === chip.value;
     case 'state': return (c.state || '') === chip.value;
@@ -3023,7 +3068,7 @@ function crossoverToReviews() {
   if (modalCrossoverTopic) openDrill([{ type: 'topic', value: modalCrossoverTopic }]);
 }
 
-function drillComplaintUrgent() { openComplaintDrill([{ type: 'urgent', value: true }], 'Urgent complaints'); }
+function drillComplaintUrgent() { openComplaintDrill([{ type: 'needs_review', value: true }], 'Complaints — Needs Review'); }
 function drillComplaintTopIssue() { if (_topComplaintIssue) openComplaintDrill([{ type: 'issue', value: _topComplaintIssue }], 'Issue: ' + _topComplaintIssue); }
 function drillComplaintTopic(el) { openComplaintDrill([{ type: 'topic', value: el.dataset.val }], 'Topic: ' + el.dataset.val); }
 function drillComplaintUrgency(el) { openComplaintDrill([{ type: 'urgency_reason', value: el.dataset.val }], 'Urgency: ' + String(el.dataset.val).replaceAll('_', ' ')); }
