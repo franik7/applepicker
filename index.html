@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Apple Bank — Voice of Customer Intelligence</title>
-<script type="text/javascript" nonce="785ace7a6fb2467b961f9f63e1b" src="//local.adguard.org?ts=1784393867224&amp;type=content-script&amp;dmn=chatgpt.com&amp;url=https%3A%2F%2Fchatgpt.com%2Fbackend-api%2Festuary%2Fcontent%3Fid%3Dfile_00000000e0ec81f5bbaf736b7ed47437%26fn%3Dindex%25282%2529.html%26cd%3Dattachment%26ts%3D495665%26p%3Dfs%26cid%3D1%26sig%3D53a90cd9ad0f0a3a4b1265aa58e14b0d3ac36ed9fc3d47e35ec70a652582720e%26v%3D0&amp;app=chrome.exe&amp;css=2&amp;js=1&amp;rel=1&amp;rji=1&amp;sbe=1&amp;stealth=1&amp;st-loc&amp;st-dnt"></script><script type="text/javascript" nonce="785ace7a6fb2467b961f9f63e1b" src="//local.adguard.org?ts=1784393867224&amp;name=AdGuard%20Extra&amp;name=AdGuard%20Popup%20Blocker&amp;type=user-script"></script><link rel="icon" type="image/png" href="/assets/favicon.png">
+<script type="text/javascript" nonce="785ace7a6fb2467b961f9f63e1b" src="//local.adguard.org?ts=1784395433385&amp;type=content-script&amp;dmn=chatgpt.com&amp;url=https%3A%2F%2Fchatgpt.com%2Fbackend-api%2Festuary%2Fcontent%3Fid%3Dfile_00000000f754820c911c7c414f9b715d%26fn%3Dindex%25283%2529.html%26cd%3Dattachment%26ts%3D495665%26p%3Dfs%26cid%3D1%26sig%3D02cd2250370c432cbb9af1e2041d5bcdea82e8d407d7a5ea68baa81116e45e6f%26v%3D0&amp;app=chrome.exe&amp;css=2&amp;js=1&amp;rel=1&amp;rji=1&amp;sbe=1&amp;stealth=1&amp;st-loc&amp;st-dnt"></script><script type="text/javascript" nonce="785ace7a6fb2467b961f9f63e1b" src="//local.adguard.org?ts=1784395433385&amp;name=AdGuard%20Extra&amp;name=AdGuard%20Popup%20Blocker&amp;type=user-script"></script><link rel="icon" type="image/png" href="/assets/favicon.png">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
@@ -765,6 +765,263 @@ body {
   .page { padding: 20px 18px 28px; }
 }
 
+
+
+/* ==========================================================
+   FULL EXECUTIVE DASHBOARD REDESIGN
+   ========================================================== */
+:root {
+  --bg: #08101d;
+  --surface: #101a29;
+  --surface2: #152235;
+  --surface3: #1a2940;
+  --border: #27364b;
+  --border-soft: rgba(164, 181, 203, .13);
+  --text: #f2f6fa;
+  --muted: #93a4b9;
+  --accent2: #4f86cf;
+  --teal: #50b9c3;
+  --green: #55bd7b;
+  --yellow: #d9ad58;
+  --red: #ef6863;
+}
+
+body {
+  background:
+    radial-gradient(circle at 74% -18%, rgba(79,134,207,.11), transparent 34%),
+    linear-gradient(180deg, #091220 0%, var(--bg) 100%);
+  font-size: 14px;
+}
+
+#sidebar {
+  width: 214px;
+  background: rgba(12, 21, 34, .98);
+  border-right: 1px solid rgba(164,181,203,.1);
+}
+#main { margin-left: 214px; }
+.sidebar-brand { padding: 20px 16px 18px; gap: 10px; }
+.brand-mark {
+  width: 36px; height: 36px; border-radius: 11px;
+  background: linear-gradient(145deg, #315f99, #1a385f);
+  border-color: rgba(121,172,232,.35);
+}
+.sidebar-brand .brand-name { font-size: 18px; }
+.sidebar-brand .brand-sub { font-size: 9.5px; letter-spacing: 1.25px; }
+.sidebar-nav { padding: 16px 10px; }
+.nav-section-label { padding: 20px 10px 7px; font-size: 9.5px; letter-spacing: 1.35px; }
+.nav-link-item {
+  margin: 2px 0; padding: 10px 11px; border: 0; border-radius: 9px;
+  font-size: 13px; gap: 11px;
+}
+.nav-link-item i {
+  width: 27px; height: 27px; display: grid; place-items: center;
+  border-radius: 8px; font-size: 14px; color: #8496ad;
+  background: rgba(255,255,255,.025);
+}
+.nav-link-item:hover { background: rgba(255,255,255,.04); }
+.nav-link-item.active {
+  background: rgba(79,134,207,.13);
+  box-shadow: inset 0 0 0 1px rgba(79,134,207,.13);
+  border: 0;
+}
+.nav-link-item.active i { color: #9bc2f0; background: rgba(79,134,207,.16); }
+.sidebar-footer { padding: 15px 16px 18px; }
+.data-status { display:flex; align-items:center; gap:7px; color:var(--muted); margin-bottom:9px; }
+.status-dot { width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 0 4px rgba(85,189,123,.09); }
+#signed-in-as { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+.topbar { padding: 0; min-height: 78px; }
+.topbar-inner {
+  width: 100%; max-width: 1680px; margin: 0 auto; padding: 14px 32px;
+  display:flex; align-items:center; justify-content:space-between; gap:24px;
+}
+.topbar-copy { min-width: 0; }
+.topbar-title { font-size: 23px; line-height:1.1; }
+.topbar-meta { margin-top:5px; font-size:11.5px; }
+.topbar-actions, .home-controls { display:flex; align-items:center; gap:12px; }
+.period-control {
+  height: 42px; display:flex; align-items:center; gap:9px; padding:0 11px 0 13px;
+  border:1px solid var(--border-soft); border-radius:10px; background:rgba(255,255,255,.025);
+}
+.period-control > span, .freshness-label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; }
+.period-control select {
+  border:0; outline:0; background:transparent; color:var(--text); font:600 12px 'DM Sans',sans-serif; cursor:pointer;
+}
+.period-control select option { background:var(--surface); color:var(--text); }
+.freshness-control {
+  min-width:116px; height:42px; display:flex; flex-direction:column; justify-content:center;
+  padding:0 12px; border-left:1px solid var(--border-soft);
+}
+.freshness-control strong { font-size:12px; font-weight:600; color:#dce6f1; margin-top:2px; }
+.badge-urgent { height:38px; padding:0 11px; border-radius:9px; background:rgba(239,104,99,.08); }
+
+.page { width:100%; max-width:1680px; margin:0 auto; padding:24px 32px 38px; }
+.chart-card, .stat-card, .review-item {
+  background: rgba(16,26,41,.88);
+  border-color: var(--border-soft);
+  box-shadow: 0 14px 36px rgba(0,0,0,.10);
+}
+.chart-card { border-radius:14px; }
+.stat-card { border-radius:13px; }
+.section-title { font-size:18px; }
+
+/* Home: visibly different, flatter and wider */
+#page-home { padding-top:18px; }
+.home-summary-line {
+  min-height:36px; display:flex; align-items:center; justify-content:space-between; gap:20px;
+  margin-bottom:14px; color:var(--muted); font-size:12px;
+}
+.home-summary-line > div:first-child { display:flex; align-items:center; gap:10px; min-width:0; }
+.eyebrow {
+  display:block; color:#7890aa; font-size:9.5px; font-weight:600; text-transform:uppercase; letter-spacing:1.15px;
+}
+.home-summary-line .eyebrow { color:#a8b7c8; white-space:nowrap; }
+#home-scope-note { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.home-legend { display:flex; align-items:center; gap:16px; white-space:nowrap; font-size:11px; }
+.legend-dot { width:7px; height:7px; border-radius:50%; display:inline-block; margin-right:6px; }
+.review-dot { background:var(--teal); }
+.complaint-dot { background:var(--accent2); }
+
+.channel-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
+.channel-panel {
+  position:relative; overflow:hidden; min-height:224px; padding:22px 22px 18px;
+  border:1px solid var(--border-soft); border-radius:16px;
+  background:linear-gradient(145deg, rgba(19,31,49,.96), rgba(13,23,37,.96));
+  box-shadow:0 18px 42px rgba(0,0,0,.13);
+}
+.channel-panel::before { content:''; position:absolute; left:0; top:0; right:0; height:3px; }
+.reviews-panel::before { background:linear-gradient(90deg, var(--teal), rgba(80,185,195,.1)); }
+.complaints-panel::before { background:linear-gradient(90deg, var(--accent2), rgba(79,134,207,.1)); }
+.channel-panel::after {
+  content:''; position:absolute; width:190px; height:190px; border-radius:50%; right:-80px; top:-100px; pointer-events:none;
+}
+.reviews-panel::after { background:rgba(80,185,195,.055); }
+.complaints-panel::after { background:rgba(79,134,207,.065); }
+.channel-panel-header { display:flex; align-items:center; justify-content:space-between; gap:16px; position:relative; z-index:1; }
+.channel-title-wrap { display:flex; align-items:center; gap:12px; }
+.channel-icon { width:39px; height:39px; border-radius:11px; display:grid; place-items:center; font-size:16px; }
+.reviews-icon { color:#8ad2d8; background:rgba(80,185,195,.11); border:1px solid rgba(80,185,195,.17); }
+.complaints-icon { color:#9bbce5; background:rgba(79,134,207,.12); border:1px solid rgba(79,134,207,.18); }
+.channel-kicker { color:var(--muted); text-transform:uppercase; letter-spacing:.9px; font-size:9px; font-weight:600; }
+.channel-panel h2 { margin:2px 0 0; font-family:'DM Serif Display',serif; font-size:20px; font-weight:400; }
+.text-action, .icon-action, .header-links button {
+  border:0; background:transparent; color:#8fa9c7; font:600 11px 'DM Sans',sans-serif; cursor:pointer;
+}
+.text-action:hover, .icon-action:hover, .header-links button:hover { color:#dceafb; }
+.channel-metrics { display:grid; grid-template-columns:1fr 1fr 1.22fr; margin-top:27px; position:relative; z-index:1; }
+.metric-block {
+  min-width:0; min-height:105px; padding:7px 19px; display:flex; flex-direction:column; align-items:flex-start; justify-content:center;
+  border:0; border-left:1px solid var(--border-soft); background:transparent; color:inherit; text-align:left;
+}
+.metric-block:first-child { border-left:0; padding-left:0; }
+.metric-block:last-child { padding-right:0; }
+button.metric-block { cursor:pointer; }
+button.metric-block:hover strong { color:#b8d8fb; }
+.metric-label { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.85px; }
+.metric-block strong {
+  width:100%; margin-top:8px; color:var(--text); font-family:'DM Serif Display',serif; font-size:36px; font-weight:400; line-height:1.02;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; transition:color .15s;
+}
+.metric-block .metric-rating { color:var(--yellow); }
+.metric-block .metric-positive { color:var(--green); }
+.metric-topic strong {
+  font-family:'DM Sans',sans-serif; font-size:16px; font-weight:600; line-height:1.25; white-space:normal;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+}
+.metric-context { margin-top:7px; color:#718399; font-size:10.5px; }
+
+.attention-strip {
+  min-height:66px; padding:12px 15px 12px 16px; margin-bottom:14px;
+  display:flex; align-items:center; justify-content:space-between; gap:18px; cursor:pointer;
+  border:1px solid rgba(239,104,99,.19); border-radius:13px;
+  background:linear-gradient(90deg, rgba(239,104,99,.075), rgba(16,26,41,.75) 28%, rgba(16,26,41,.75));
+  transition:border-color .15s, transform .15s, background .15s;
+}
+.attention-strip:hover { border-color:rgba(239,104,99,.38); transform:translateY(-1px); }
+.attention-main { display:flex; align-items:center; gap:12px; }
+.attention-icon { width:36px; height:36px; display:grid; place-items:center; border-radius:10px; color:var(--red); background:rgba(239,104,99,.10); }
+.attention-title { font-size:14px; font-weight:600; }
+.attention-sub { margin-top:3px; color:var(--muted); font-size:11px; }
+.attention-action {
+  min-width:104px; height:38px; padding:0 13px; display:flex; align-items:center; justify-content:center; gap:8px;
+  border-radius:9px; color:#f1c0be; background:rgba(239,104,99,.08); font-size:11.5px; font-weight:600;
+}
+
+.home-detail-grid { display:grid; grid-template-columns:minmax(350px, .72fr) minmax(520px, 1.28fr); gap:14px; }
+.insight-card {
+  min-height:390px; padding:20px 21px 16px; border:1px solid var(--border-soft); border-radius:15px;
+  background:rgba(16,26,41,.82); box-shadow:0 16px 38px rgba(0,0,0,.10);
+}
+.insight-header { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; padding-bottom:14px; border-bottom:1px solid var(--border-soft); }
+.insight-header h3 { margin:4px 0 0; font-family:'DM Serif Display',serif; font-size:19px; font-weight:400; }
+.insight-header p { margin:5px 0 0; color:var(--muted); font-size:11.5px; line-height:1.45; }
+.icon-action { width:32px; height:32px; border:1px solid var(--border-soft); border-radius:9px; flex:0 0 auto; }
+.header-links { display:flex; gap:6px; }
+.header-links button { padding:7px 9px; border:1px solid var(--border-soft); border-radius:8px; }
+.insight-list, .activity-list { margin-top:5px; }
+.home-list-row { min-height:49px; padding:7px 5px; border-radius:0; }
+.home-list-row:hover { background:transparent; }
+.topic-rank { width:22px; color:#60758d; font-size:10px; font-variant-numeric:tabular-nums; }
+.home-list-main { min-width:0; display:flex; align-items:center; gap:8px; }
+.home-list-name { font-size:12.5px; font-weight:500; }
+.topic-counts { display:flex; align-items:center; gap:6px; }
+.topic-count { padding:3px 7px; border-radius:7px; font-size:10px; white-space:nowrap; }
+.topic-count.reviews { color:#7acbd2; background:rgba(80,185,195,.075); }
+.topic-count.complaints { color:#8db2df; background:rgba(79,134,207,.08); }
+.home-activity-row {
+  min-height:49px; grid-template-columns:auto minmax(0,1fr) auto auto; gap:10px; padding:7px 5px; border-radius:0;
+}
+.home-activity-row:hover { background:transparent; }
+.activity-copy { font-size:12.5px; }
+.activity-date { min-width:56px; text-align:right; font-size:10.5px; }
+.activity-chevron { opacity:.35; }
+.channel-badge { font-size:9px; border-radius:6px; padding:3px 7px; }
+.ch-review { background:rgba(80,185,195,.09); color:#78cbd2; }
+.ch-complaint { background:rgba(79,134,207,.10); color:#8db3e0; }
+
+/* All interior pages: cleaner, less boxed */
+#page-overview .stat-card, #page-sentiment .stat-card, #page-complaints .stat-card { box-shadow:none; }
+.filter-btn { background:rgba(16,26,41,.72); border-color:var(--border-soft); }
+.search-input, .sort-select { background:rgba(21,34,53,.88); border-color:var(--border-soft); }
+.data-table th, .data-table td { border-color:var(--border-soft); }
+
+@media (max-width: 1180px) {
+  .topbar-inner, .page { padding-left:22px; padding-right:22px; }
+  .home-controls .freshness-control { display:none; }
+  .channel-metrics { grid-template-columns:1fr 1fr 1fr; }
+  .metric-block { padding-left:13px; padding-right:13px; }
+  .metric-block strong { font-size:32px; }
+  .home-detail-grid { grid-template-columns:1fr; }
+  .insight-card { min-height:auto; }
+}
+@media (max-width: 900px) {
+  #sidebar { width:76px; } #main { margin-left:76px; }
+  .channel-grid { grid-template-columns:1fr; }
+  .home-summary-line { align-items:flex-start; }
+  .home-legend { display:none; }
+  .topbar-actions { gap:8px; }
+  .period-control > span { display:none; }
+}
+@media (max-width: 680px) {
+  .topbar-inner { padding:12px 14px; }
+  .topbar-meta { display:none; }
+  .page { padding:15px 14px 28px; }
+  .home-summary-line > div:first-child { display:block; }
+  #home-scope-note { display:block; margin-top:4px; white-space:normal; }
+  .channel-panel { padding:18px 16px 14px; }
+  .text-action { display:none; }
+  .channel-metrics { grid-template-columns:1fr; margin-top:18px; }
+  .metric-block, .metric-block:first-child, .metric-block:last-child {
+    min-height:76px; padding:12px 0; border-left:0; border-top:1px solid var(--border-soft);
+  }
+  .metric-block:first-child { border-top:0; }
+  .metric-block strong { font-size:31px; }
+  .attention-action { min-width:auto; width:38px; font-size:0; }
+  .header-links { display:none; }
+  .home-activity-row { grid-template-columns:auto minmax(0,1fr) auto; }
+  .activity-chevron { display:none; }
+}
+
 </style>
 </head>
 <body>
@@ -871,7 +1128,7 @@ body {
     </div>
   </div>
   <div class="sidebar-footer">
-    <div id="footer-stats">Loading…<br>Last update: —</div>
+    <div class="data-status"><span class="status-dot"></span><span id="footer-stats">Loading data…</span></div>
     <div id="signed-in-as"></div>
     <a class="sign-out-link" onclick="handleLogout()"><i class="bi bi-box-arrow-left"></i> Sign out</a>
   </div>
@@ -880,74 +1137,145 @@ body {
 <!-- Main -->
 <div id="main">
   <div class="topbar">
-    <div>
-      <div class="topbar-title" id="topbar-title">Home</div>
-      <div class="topbar-meta">Apple Bank for Savings · New York City · All locations</div>
+    <div class="topbar-inner">
+      <div class="topbar-copy">
+        <div class="topbar-title" id="topbar-title">Home</div>
+        <div class="topbar-meta">Apple Bank for Savings · Customer Experience Intelligence</div>
+      </div>
+      <div class="topbar-actions">
+        <div id="home-controls" class="home-controls">
+          <label class="period-control">
+            <span>Snapshot</span>
+            <select id="home-period" onchange="setHomePeriod(this.value)">
+              <option value="all">All time</option>
+              <option value="30d">Last 30 days</option>
+              <option value="90d">Last 90 days</option>
+              <option value="ytd">Year to date</option>
+            </select>
+          </label>
+          <div class="freshness-control">
+            <span class="freshness-label">Data through</span>
+            <strong id="topbar-updated">—</strong>
+          </div>
+        </div>
+        <div id="urgent-indicator"></div>
+      </div>
     </div>
-    <div id="urgent-indicator"></div>
   </div>
 
   <!-- ===== HOME PAGE (cross-channel landing) ===== -->
   <div id="page-home" class="page active">
-    <div class="home-intro">
-      <div class="section-title">Customer Experience Snapshot</div>
-      <div class="section-sub">A cross-channel view of customer reviews and CFPB complaints. Metrics remain separate; only attention and shared themes are combined.</div>
-    </div>
-
-    <!-- Channel KPI strips (never blended) -->
-    <div class="row g-3 mb-3">
-      <div class="col-md-6">
-        <div class="chart-card h-100">
-          <div class="card-title"><i class="bi bi-chat-left-text" style="margin-right:6px;color:var(--teal);"></i>Reviews</div>
-          <div class="card-sub">Customer reviews across platforms</div>
-          <div class="row g-2">
-            <div class="col-4"><div class="stat-card clickable" onclick="showPage('reviews')" title="Go to All Reviews"><div class="stat-label">Total</div><div class="stat-value" id="home-rev-total" style="color:var(--text)">—</div></div></div>
-            <div class="col-4"><div class="stat-card"><div class="stat-label">Avg Rating</div><div class="stat-value" id="home-rev-avg" style="color:var(--yellow)">—</div></div></div>
-            <div class="col-4"><div class="stat-card clickable" onclick="drillSentiment('positive')" title="View positive reviews"><div class="stat-label">Positive</div><div class="stat-value" id="home-rev-pos" style="color:var(--green)">—</div></div></div>
-          </div>
-        </div>
+    <div class="home-summary-line">
+      <div>
+        <span class="eyebrow">Customer experience snapshot</span>
+        <span id="home-scope-note">All available review and complaint data</span>
       </div>
-      <div class="col-md-6">
-        <div class="chart-card h-100">
-          <div class="card-title"><i class="bi bi-shield-exclamation" style="margin-right:6px;color:var(--red);"></i>Complaints</div>
-          <div class="card-sub">CFPB regulatory complaints</div>
-          <div class="row g-2">
-            <div class="col-4"><div class="stat-card clickable" onclick="showPage('complaints')" title="Go to CFPB Complaints"><div class="stat-label">Total</div><div class="stat-value" id="home-comp-total" style="color:var(--text)">—</div></div></div>
-            <div class="col-4"><div class="stat-card"><div class="stat-label">Timely</div><div class="stat-value" id="home-comp-timely" style="color:var(--green)">—</div></div></div>
-            <div class="col-4"><div class="stat-card clickable" onclick="drillComplaintTopIssue()" title="View the top issue"><div class="stat-label">Top Issue</div><div class="stat-value" id="home-comp-issue" style="color:var(--text);font-size:14px;line-height:1.3;font-family:'DM Sans',sans-serif;font-weight:600;">—</div></div></div>
-          </div>
-        </div>
+      <div class="home-legend">
+        <span><i class="legend-dot review-dot"></i>Customer reviews</span>
+        <span><i class="legend-dot complaint-dot"></i>Regulatory complaints</span>
       </div>
     </div>
 
-    <!-- Unified attention banner -->
-    <div class="chart-card attention-banner mb-3 clickable" onclick="showPage('urgent')" title="Open the cross-channel triage queue" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-      <div style="display:flex;align-items:center;gap:12px;">
-        <i class="bi bi-exclamation-triangle-fill" style="color:var(--red);font-size:22px;"></i>
+    <div class="channel-grid">
+      <section class="channel-panel reviews-panel">
+        <div class="channel-panel-header">
+          <div class="channel-title-wrap">
+            <span class="channel-icon reviews-icon"><i class="bi bi-chat-square-text"></i></span>
+            <div>
+              <div class="channel-kicker">Customer voice</div>
+              <h2>Reviews</h2>
+            </div>
+          </div>
+          <button class="text-action" onclick="showPage('reviews')">All reviews <i class="bi bi-arrow-up-right"></i></button>
+        </div>
+        <div class="channel-metrics">
+          <button class="metric-block" onclick="showPage('reviews')">
+            <span class="metric-label">Total reviews</span>
+            <strong id="home-rev-total">—</strong>
+            <span class="metric-context">Across all sources</span>
+          </button>
+          <div class="metric-block">
+            <span class="metric-label">Average rating</span>
+            <strong id="home-rev-avg" class="metric-rating">—</strong>
+            <span class="metric-context">Out of 5 stars</span>
+          </div>
+          <button class="metric-block" onclick="drillSentiment('positive')">
+            <span class="metric-label">Positive sentiment</span>
+            <strong id="home-rev-pos" class="metric-positive">—</strong>
+            <span class="metric-context">Share of reviews</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="channel-panel complaints-panel">
+        <div class="channel-panel-header">
+          <div class="channel-title-wrap">
+            <span class="channel-icon complaints-icon"><i class="bi bi-shield-check"></i></span>
+            <div>
+              <div class="channel-kicker">Regulatory voice</div>
+              <h2>CFPB Complaints</h2>
+            </div>
+          </div>
+          <button class="text-action" onclick="showPage('complaints')">All complaints <i class="bi bi-arrow-up-right"></i></button>
+        </div>
+        <div class="channel-metrics">
+          <button class="metric-block" onclick="showPage('complaints')">
+            <span class="metric-label">Total complaints</span>
+            <strong id="home-comp-total">—</strong>
+            <span class="metric-context">CFPB records</span>
+          </button>
+          <div class="metric-block">
+            <span class="metric-label">Timely responses</span>
+            <strong id="home-comp-timely" class="metric-positive">—</strong>
+            <span class="metric-context">Reported response rate</span>
+          </div>
+          <button class="metric-block metric-topic" onclick="drillComplaintTopIssue()">
+            <span class="metric-label">Most common issue</span>
+            <strong id="home-comp-issue">—</strong>
+            <span class="metric-context">Open related complaints</span>
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <section class="attention-strip" onclick="showPage('urgent')" title="Open the cross-channel triage queue">
+      <div class="attention-main">
+        <span class="attention-icon"><i class="bi bi-exclamation-triangle"></i></span>
         <div>
-          <div style="font-size:15px;font-weight:600;color:var(--text);"><span id="home-urgent-count">0</span> <span id="home-urgent-noun">items</span> need attention</div>
-          <div style="font-size:12px;color:var(--muted);"><span id="home-urgent-breakdown">—</span> · cross-channel triage queue</div>
+          <div class="attention-title"><span id="home-urgent-count">0</span> <span id="home-urgent-noun">items</span> need attention</div>
+          <div class="attention-sub"><span id="home-urgent-breakdown">—</span></div>
         </div>
       </div>
-      <i class="bi bi-arrow-right" style="color:var(--accent2);font-size:18px;"></i>
-    </div>
+      <div class="attention-action">Review now <i class="bi bi-arrow-right"></i></div>
+    </section>
 
-    <!-- Shared topics + recent activity -->
-    <div class="row g-3">
-      <div class="col-md-6">
-        <div class="chart-card h-100">
-          <div class="card-title">Shared Topics Across Reviews and Complaints</div>
-          <div class="card-sub">Themes present in both datasets — open complaints, then jump to matching reviews</div>
-          <div id="crossover-list" style="margin-top:6px;"></div>
+    <div class="home-detail-grid">
+      <section class="insight-card shared-card">
+        <div class="insight-header">
+          <div>
+            <span class="eyebrow">Cross-channel insight</span>
+            <h3>Shared topics</h3>
+            <p>Themes appearing in both customer reviews and CFPB complaints.</p>
+          </div>
+          <button class="icon-action" onclick="showPage('complaints')" title="Explore complaints"><i class="bi bi-arrow-up-right"></i></button>
         </div>
-      </div>
-      <div class="col-md-6">
-        <div class="chart-card h-100">
-          <div class="card-title">Recent Activity</div>
-          <div class="card-sub">Latest customer and regulatory activity across both channels</div>
-          <div id="home-activity" style="margin-top:6px;"></div>
+        <div id="crossover-list" class="insight-list"></div>
+      </section>
+
+      <section class="insight-card activity-card">
+        <div class="insight-header">
+          <div>
+            <span class="eyebrow">Live feed</span>
+            <h3>Recent activity</h3>
+            <p>Newest customer and regulatory records in the selected period.</p>
+          </div>
+          <div class="header-links">
+            <button onclick="showPage('reviews')">Reviews</button>
+            <button onclick="showPage('complaints')">Complaints</button>
+          </div>
         </div>
-      </div>
+        <div id="home-activity" class="activity-list"></div>
+      </section>
     </div>
   </div>
 
@@ -1503,6 +1831,8 @@ function showPage(name) {
   if (navEl) navEl.classList.add('active');
   const titles = { home: 'Home', overview: 'Overview', sentiment: 'Sentiment Analysis', branches: 'Branch Performance', reviews: 'All Reviews', urgent: 'Urgent', staff: 'Staff Mentions', complaints: 'CFPB Complaints' };
   document.getElementById('topbar-title').textContent = titles[name] || name;
+  const homeControls = document.getElementById('home-controls');
+  if (homeControls) homeControls.style.display = name === 'home' ? 'flex' : 'none';
   if (name === 'home') renderHome();
   if (name === 'reviews' && !reviewsInitialized) initReviews();
   if (name === 'urgent') renderUrgentQueue();
@@ -1563,6 +1893,30 @@ const chartCursor = (evt, els) => {
 // ============================================================
 // DRILL-DOWN SYSTEM (chips + modal "pivot table")
 // ============================================================
+let homePeriod = 'all'; // home snapshot only: all | 30d | 90d | ytd
+
+function homePeriodCutoff() {
+  const now = new Date();
+  if (homePeriod === '30d') return now.getTime() - 30 * 864e5;
+  if (homePeriod === '90d') return now.getTime() - 90 * 864e5;
+  if (homePeriod === 'ytd') return new Date(now.getFullYear(), 0, 1).getTime();
+  return null;
+}
+
+function setHomePeriod(value) {
+  homePeriod = value;
+  renderHome();
+}
+
+function homeRows(items, timeFn) {
+  const cutoff = homePeriodCutoff();
+  return cutoff === null ? items : items.filter(item => timeFn(item) >= cutoff);
+}
+
+function homePeriodLabel() {
+  return ({ all: 'All available review and complaint data', '30d': 'Records from the last 30 days', '90d': 'Records from the last 90 days', ytd: 'Records received this calendar year' })[homePeriod] || '';
+}
+
 let drillChips = [];      // chips applied on the All Reviews page
 let modalChips = [];      // chips currently shown in the modal
 let modalSort = 'newest';
@@ -2180,51 +2534,73 @@ function updateAttention() {
 // ---- Home landing ----
 function renderHome() {
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  // Reviews strip
-  const rTotal = REVIEWS.length;
-  const rPos = REVIEWS.filter(r => r.sentiment === 'positive').length;
-  const avg = avgRating(REVIEWS);
+  const homeReviews = homeRows(REVIEWS, ts);
+  const homeComplaints = homeRows(COMPLAINTS, cts);
+
+  const rTotal = homeReviews.length;
+  const rPos = homeReviews.filter(r => r.sentiment === 'positive').length;
+  const avg = avgRating(homeReviews);
   set('home-rev-total', rTotal);
   set('home-rev-avg', avg ? avg.toFixed(1) : 'N/A');
   set('home-rev-pos', rTotal ? safePct(rPos, rTotal) + '%' : '0%');
-  // Complaints strip
-  const cTotal = COMPLAINTS.length;
-  const ty = COMPLAINTS.filter(c => c.timely === 'Yes').length;
-  const tn = COMPLAINTS.filter(c => c.timely === 'No').length;
-  const issues = Object.entries(countBy(COMPLAINTS.filter(c => c.issue), c => c.issue)).sort((a, b) => b[1] - a[1]);
-  if (issues.length) _topComplaintIssue = issues[0][0]; // keep the Top Issue drill working from Home
+
+  const cTotal = homeComplaints.length;
+  const ty = homeComplaints.filter(c => c.timely === 'Yes').length;
+  const tn = homeComplaints.filter(c => c.timely === 'No').length;
+  const issues = Object.entries(countBy(homeComplaints.filter(c => c.issue), c => c.issue)).sort((a, b) => b[1] - a[1]);
+  // Keep the drill valid for the selected snapshot. If it is empty, retain the all-time top issue.
+  if (issues.length) _topComplaintIssue = issues[0][0];
   set('home-comp-total', cTotal);
   set('home-comp-timely', (ty + tn) ? safePct(ty, ty + tn) + '%' : 'N/A');
-  set('home-comp-issue', issues.length ? issues[0][0] : '—');
+  set('home-comp-issue', issues.length ? issues[0][0] : 'No issue in period');
+  set('home-scope-note', homePeriodLabel());
 
+  updateDataFreshness();
   updateAttention();
-  renderComplaintCrossover(); // #crossover-list now lives on Home
-  renderHomeActivity();
+  renderComplaintCrossover(homeReviews, homeComplaints);
+  renderHomeActivity(homeReviews, homeComplaints);
 }
 
-function renderHomeActivity() {
+function updateDataFreshness() {
+  const dates = [
+    ...REVIEWS.map(r => ({ raw: r.review_date, time: ts(r) })),
+    ...COMPLAINTS.map(c => ({ raw: c.date_received, time: cts(c) }))
+  ].filter(x => x.time).sort((a, b) => b.time - a.time);
+  const el = document.getElementById('topbar-updated');
+  if (!el) return;
+  el.textContent = dates.length
+    ? new Date(dates[0].time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
+    : 'No data';
+}
+
+function renderHomeActivity(reviewRows = REVIEWS, complaintRows = COMPLAINTS) {
   const box = document.getElementById('home-activity');
   if (!box) return;
   const items = [];
-  REVIEWS.forEach(r => items.push({ channel: 'review', time: ts(r), item: r }));
-  COMPLAINTS.forEach(c => items.push({ channel: 'complaint', time: cts(c), item: c }));
+  reviewRows.forEach(r => items.push({ channel: 'review', time: ts(r), item: r }));
+  complaintRows.forEach(c => items.push({ channel: 'complaint', time: cts(c), item: c }));
   items.sort((a, b) => b.time - a.time);
   const rowHtml = (badge, handler, id, date, urgent, snippet) =>
     `<div class="home-activity-row clickable" data-id="${escAttr(String(id))}" onclick="${handler}(this)">
       <span class="channel-badge ${badge.cls}">${badge.label}</span>
       <span class="activity-copy">${escapeHtml(snippet)}${snippet.length >= 92 ? '…' : ''}</span>
-      <span class="activity-status">${urgent ? '<span class="priority-dot p5" title="Urgent" style="margin:0;"></span>' : ''}</span>
-      <span class="activity-date">${date || ''}</span>
-      <i class="bi bi-chevron-right activity-chevron" aria-hidden="true"></i>
+      ${urgent ? '<span class="priority-dot p5" title="Urgent"></span>' : '<span></span>'}
+      <span class="activity-date">${formatHomeDate(date)}</span>
     </div>`;
-  box.innerHTML = items.slice(0, 8).map(e => {
+  box.innerHTML = items.slice(0, 7).map(e => {
     if (e.channel === 'review') {
       const r = e.item;
       return rowHtml({ cls: 'ch-review', label: 'Review' }, 'drillHomeReview', r.id, r.review_date, r.is_urgent, String(r.review_text || r.ai_summary || '').slice(0, 92));
     }
     const c = e.item;
     return rowHtml({ cls: 'ch-complaint', label: 'Complaint' }, 'drillHomeComplaint', c.id, c.date_received, c.is_urgent, String(c.narrative || c.ai_summary || c.issue || '').slice(0, 92));
-  }).join('') || `<span style="color:var(--muted);font-size:12px;">No activity yet.</span>`;
+  }).join('') || `<div style="color:var(--muted);font-size:12px;padding:20px 4px;">No activity in the selected period.</div>`;
+}
+
+function formatHomeDate(value) {
+  const d = new Date(value || '');
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
 function drillHomeReview(el) { const r = REVIEWS.find(x => String(x.id) === el.dataset.id); if (r) openDrill([{ type: 'id', value: r.id }], r.author || 'Review'); }
@@ -2438,7 +2814,7 @@ function applyDashboardMetrics() {
   if (sentimentSubs[2]) sentimentSubs[2].textContent = `${safePct(neutral, total)}% of all reviews`;
 
   const footer = document.getElementById("footer-stats");
-  if (footer) footer.innerHTML = `${total} reviews · ${sources} source${sources === 1 ? "" : "s"}<br>Last update: ${lastUpdate}`;
+  if (footer) footer.textContent = `${total} reviews · ${sources} source${sources === 1 ? '' : 's'}`;
 
   updateAttention();
 }
@@ -2961,24 +3337,30 @@ function renderComplaintCharts() {
   }
 }
 
-function renderComplaintCrossover() {
+function renderComplaintCrossover(reviewRows = REVIEWS, complaintRows = COMPLAINTS) {
   const box = document.getElementById('crossover-list');
   if (!box) return;
   const revCount = {}, revLabel = {};
-  REVIEWS.forEach(r => new Set((r.topics || []).map(String)).forEach(t => {
+  reviewRows.forEach(r => new Set((r.topics || []).map(String)).forEach(t => {
     const k = t.toLowerCase(); revCount[k] = (revCount[k] || 0) + 1; if (!revLabel[k]) revLabel[k] = t;
   }));
   const compCount = {}, compLabel = {};
-  COMPLAINTS.forEach(c => new Set((c.topics || []).map(String)).forEach(t => {
+  complaintRows.forEach(c => new Set((c.topics || []).map(String)).forEach(t => {
     const k = t.toLowerCase(); compCount[k] = (compCount[k] || 0) + 1; if (!compLabel[k]) compLabel[k] = t;
   }));
   const rows = Object.keys(compCount).filter(k => revCount[k])
     .map(k => ({ rev: revCount[k], comp: compCount[k], revLabel: revLabel[k], compLabel: compLabel[k] }))
     .sort((a, b) => (b.rev + b.comp) - (a.rev + a.comp)).slice(0, 6);
-  box.innerHTML = rows.map(r => `<div class="home-list-row clickable" data-comp="${escAttr(r.compLabel)}" data-rev="${escAttr(r.revLabel)}" onclick="crossoverDrill(this)">
-    <span class="home-list-name"><i class="bi bi-tags" style="color:var(--purple);margin-right:7px;"></i>${escapeHtml(r.compLabel)}</span>
-    <span class="home-list-count">${r.rev} review${r.rev === 1 ? '' : 's'} · ${r.comp} complaint${r.comp === 1 ? '' : 's'}</span>
-  </div>`).join('') || `<span style="color:var(--muted);font-size:12px;">No topics shared between reviews and complaints yet.</span>`;
+  box.innerHTML = rows.map((r, i) => `<div class="home-list-row clickable" data-comp="${escAttr(r.compLabel)}" data-rev="${escAttr(r.revLabel)}" onclick="crossoverDrill(this)">
+    <div class="home-list-main">
+      <span class="topic-rank">${String(i + 1).padStart(2, '0')}</span>
+      <span class="home-list-name">${escapeHtml(r.compLabel)}</span>
+    </div>
+    <div class="topic-counts">
+      <span class="topic-count reviews">${r.rev} review${r.rev === 1 ? '' : 's'}</span>
+      <span class="topic-count complaints">${r.comp} complaint${r.comp === 1 ? '' : 's'}</span>
+    </div>
+  </div>`).join('') || `<div style="color:var(--muted);font-size:12px;padding:20px 4px;">No shared topics in the selected period.</div>`;
 }
 
 function renderComplaintFeed() {
