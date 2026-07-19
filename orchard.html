@@ -491,7 +491,9 @@ function titleCase(s) {
 // MAP BOOT + DATA LOADING
 // ============================================================
 function bootMap() {
-  map = L.map("map", { zoomControl: true, preferCanvas: true }).setView(NYC_CENTER, NYC_ZOOM);
+  // Zoom control on the right so it doesn't sit under the left-hand control panel.
+  map = L.map("map", { zoomControl: false, preferCanvas: true }).setView(NYC_CENTER, NYC_ZOOM);
+  L.control.zoom({ position: "topright" }).addTo(map);
   L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
     subdomains: "abcd",
@@ -514,21 +516,34 @@ async function loadYear(year, firstLoad) {
   currentYear = year;
   renderYearButtons();
 
-  const { data, error } = await supabaseClient
-    .from("sod_branches")
-    .select("*")
-    .eq("year", year)
-    .not("lat", "is", null)
-    .not("lng", "is", null)
-    .limit(3000);
+  // Supabase caps a single request at 1,000 rows, so page through with .range()
+  // until a page returns fewer than a full page (the full year is ~4,000 rows).
+  const PAGE = 1000;
+  const rows = [];
+  let start = 0;
+  while (true) {
+    const { data, error } = await supabaseClient
+      .from("sod_branches")
+      .select("*")
+      .eq("year", year)
+      .not("lat", "is", null)
+      .not("lng", "is", null)
+      .order("uninumbr", { ascending: true })
+      .range(start, start + PAGE - 1);
 
-  if (error) {
-    console.error("Failed to load sod_branches:", error);
-    if (firstLoad) hideLoading();
-    return;
+    if (error) {
+      console.error("Failed to load sod_branches:", error);
+      if (firstLoad) hideLoading();
+      return;
+    }
+
+    const page = data || [];
+    rows.push(...page);
+    if (page.length < PAGE) break;
+    start += PAGE;
   }
 
-  branches = (data || []).filter(b => b.lat != null && b.lng != null);
+  branches = rows.filter(b => b.lat != null && b.lng != null);
   computeTop5();
   rebuildCountyChips();
   buildMarkers();
@@ -564,8 +579,19 @@ function computeTop5() {
 // COUNTY CHIPS
 // ============================================================
 function rebuildCountyChips() {
-  const counties = [...new Set(branches.map(b => (b.county || "").trim()).filter(Boolean))]
-    .sort((a, b) => a.localeCompare(b));
+  // Distinct counties actually present in the loaded data, with each county's state
+  // (first seen) so we can order NY counties before NJ.
+  const countyState = new Map();
+  for (const b of branches) {
+    const c = (b.county || "").trim();
+    if (!c) continue;
+    if (!countyState.has(c)) countyState.set(c, (b.state || "").trim().toUpperCase());
+  }
+  const stateRank = st => (st === "NY" ? 0 : st === "NJ" ? 1 : 2);
+  const counties = [...countyState.keys()].sort((a, b) => {
+    const r = stateRank(countyState.get(a)) - stateRank(countyState.get(b));
+    return r !== 0 ? r : a.localeCompare(b);
+  });
 
   // Default: all counties selected. Preserve prior selection where possible on year change.
   if (selectedCounties.size === 0 || firstCountyBuild) {
