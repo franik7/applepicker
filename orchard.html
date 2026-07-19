@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apple Orchard — Branch Deposit Map</title>
+<link rel="icon" type="image/png" href="/assets/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+:root {
+  --bg: #08101d;
+  --surface: #101a29;
+  --surface2: #152235;
+  --surface3: #1a2940;
+  --border: #27364b;
+  --border-soft: rgba(164, 181, 203, .13);
+  --text: #f2f6fa;
+  --muted: #93a4b9;
+  --accent: #1D9E75;
+  --accent2: #4f86cf;
+  --red: #ef6863;
+  --green: #55bd7b;
+  --gray: #888780;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  height: 100vh;
+  overflow: hidden;
+  letter-spacing: 0.01em;
+}
+
+/* ---- Top bar ---- */
+.topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 60px;
+  z-index: 900;
+  background: rgba(16, 26, 41, 0.94);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border-soft);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+}
+.topbar-brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.brand-mark {
+  width: 34px; height: 34px; border-radius: 10px;
+  display: grid; place-items: center; flex: 0 0 auto;
+  background: linear-gradient(145deg, rgba(29,158,117,.32), rgba(29,158,117,.10));
+  border: 1px solid rgba(29,158,117,.42);
+  color: #c9f2e2;
+  font-family: 'DM Serif Display', serif;
+  font-size: 16px;
+}
+.brand-copy { min-width: 0; }
+.brand-name { font-family: 'DM Serif Display', serif; font-size: 19px; line-height: 1.1; }
+.brand-sub { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.4px; margin-top: 2px; }
+.topbar-actions { display: flex; align-items: center; gap: 14px; }
+.back-link {
+  display: inline-flex; align-items: center; gap: 7px;
+  color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 500;
+  padding: 7px 13px; border: 1px solid var(--border-soft); border-radius: 9px;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.back-link:hover { color: var(--text); border-color: var(--accent2); background: rgba(79,134,207,.08); }
+#signed-in-as { font-size: 11px; color: var(--muted); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sign-out-link { color: var(--muted); font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+.sign-out-link:hover { color: var(--red); }
+
+/* ---- Map ---- */
+#map {
+  position: absolute;
+  top: 60px; left: 0; right: 0; bottom: 0;
+  background: var(--bg);
+}
+
+/* ---- Floating control panel ---- */
+.control-panel {
+  position: absolute;
+  top: 76px; left: 16px;
+  z-index: 800;
+  width: 300px;
+  max-height: calc(100vh - 92px);
+  overflow-y: auto;
+  background: rgba(16, 26, 41, 0.94);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  box-shadow: 0 18px 44px rgba(0,0,0,.4);
+  padding: 16px 16px 18px;
+}
+.panel-title { font-family: 'DM Serif Display', serif; font-size: 20px; margin-bottom: 2px; }
+.panel-sub { font-size: 11.5px; color: var(--muted); line-height: 1.45; margin-bottom: 14px; }
+
+.ctrl-group { margin-bottom: 15px; }
+.ctrl-label {
+  font-size: 10px; color: var(--muted); text-transform: uppercase;
+  letter-spacing: 1px; font-weight: 600; margin-bottom: 7px; display: block;
+}
+
+.ctrl-select, .ctrl-input {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px 11px;
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  outline: none;
+}
+.ctrl-select { cursor: pointer; }
+.ctrl-select:focus, .ctrl-input:focus { border-color: var(--accent2); }
+.ctrl-select option { background: var(--surface); color: var(--text); }
+.ctrl-input::placeholder { color: #63758c; }
+
+/* Year selector as segmented pills */
+.year-row { display: flex; gap: 5px; }
+.year-btn {
+  flex: 1;
+  padding: 7px 0; text-align: center;
+  border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--muted);
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: all .15s;
+}
+.year-btn:hover { color: var(--text); border-color: var(--accent2); }
+.year-btn.active { background: var(--accent2); color: #fff; border-color: var(--accent2); }
+
+/* County chips */
+.chips-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
+.county-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 20px;
+  border: 1px solid var(--border); background: var(--surface2);
+  color: var(--muted); font-size: 11.5px; font-weight: 500; cursor: pointer;
+  transition: all .15s;
+}
+.county-chip:hover { color: var(--text); border-color: var(--accent2); }
+.county-chip.active {
+  background: rgba(79,134,207,.16); color: #cfe2fb;
+  border-color: rgba(79,134,207,.5);
+}
+.chip-mini-btn {
+  background: none; border: none; color: var(--muted);
+  font-size: 11px; cursor: pointer; padding: 0; margin-top: 8px;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.chip-mini-btn:hover { color: var(--accent2); }
+
+/* Summary strip */
+.summary {
+  margin-top: 4px;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 14px;
+}
+.summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 10px; }
+.summary-cell .s-label {
+  font-size: 9.5px; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .8px; margin-bottom: 4px;
+}
+.summary-cell .s-value {
+  font-family: 'DM Serif Display', serif; font-size: 21px; line-height: 1;
+}
+.summary-cell.apple .s-value { color: var(--accent); }
+
+/* Legend */
+.legend {
+  margin-top: 14px; padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+  display: flex; flex-direction: column; gap: 7px;
+}
+.legend-row { display: flex; align-items: center; gap: 9px; font-size: 11.5px; color: var(--muted); }
+.legend-dot { width: 12px; height: 12px; border-radius: 50%; flex: 0 0 auto; }
+.legend-dot.apple { background: var(--accent); }
+.legend-dot.other { background: var(--gray); opacity: .55; }
+.legend-size { display: flex; align-items: flex-end; gap: 8px; margin-top: 2px; }
+.legend-size .lg-circle { border-radius: 50%; border: 1px solid var(--muted); opacity: .6; }
+
+/* Loading + login overlays (match index.html) */
+#loading-overlay, #login-overlay {
+  position: fixed; inset: 0; z-index: 10000;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+}
+#loading-overlay.hidden, #login-overlay.hidden { display: none; }
+#loading-overlay { transition: opacity .35s ease; }
+#loading-overlay.fade { opacity: 0; pointer-events: none; }
+.loader-box { text-align: center; color: var(--muted); font-size: 13px; }
+.spinner {
+  width: 34px; height: 34px; margin: 0 auto 14px;
+  border: 3px solid var(--border); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.login-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 36px 34px 30px; width: 340px; text-align: center;
+}
+.login-brand { font-family: 'DM Serif Display', serif; font-size: 22px; }
+.login-sub { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; margin: 4px 0 22px; }
+.login-input {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); border-radius: 8px; padding: 9px 12px; font-size: 13px; margin-top: 10px; outline: none;
+}
+.login-input:focus { border-color: var(--accent2); }
+.login-btn {
+  width: 100%; margin-top: 16px; background: var(--accent2); border: none; color: #fff;
+  padding: 9px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity .15s;
+}
+.login-btn:hover { opacity: .9; }
+.login-btn:disabled { opacity: .55; cursor: default; }
+#login-error { color: var(--red); font-size: 12px; margin-top: 12px; min-height: 16px; }
+
+/* Leaflet popup — dark theme */
+.leaflet-popup-content-wrapper {
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 18px 44px rgba(0,0,0,.5);
+}
+.leaflet-popup-content { margin: 14px 16px; font-family: 'DM Sans', sans-serif; }
+.leaflet-popup-tip { background: var(--surface); border: 1px solid var(--border); }
+.leaflet-popup-close-button { color: var(--muted) !important; }
+.leaflet-container a.leaflet-popup-close-button:hover { color: var(--text) !important; }
+.leaflet-container { background: var(--bg); font-family: 'DM Sans', sans-serif; }
+.leaflet-control-attribution { background: rgba(16,26,41,.8) !important; color: var(--muted) !important; }
+.leaflet-control-attribution a { color: var(--accent2) !important; }
+.leaflet-bar a { background: var(--surface) !important; color: var(--text) !important; border-color: var(--border) !important; }
+.leaflet-bar a:hover { background: var(--surface2) !important; }
+
+.popup-bank { font-family: 'DM Serif Display', serif; font-size: 16px; line-height: 1.2; margin-bottom: 3px; }
+.popup-bank.is-apple { color: var(--accent); }
+.popup-addr { font-size: 11.5px; color: var(--muted); line-height: 1.4; margin-bottom: 9px; }
+.popup-deposit { font-size: 13px; margin-bottom: 3px; }
+.popup-deposit strong { font-size: 18px; font-family: 'DM Serif Display', serif; }
+.popup-year-label { font-size: 9.5px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin: 11px 0 6px; }
+.pop-yr-row {
+  display: grid; grid-template-columns: 42px 1fr auto; align-items: center;
+  gap: 8px; padding: 3px 0; font-size: 12px; font-variant-numeric: tabular-nums;
+}
+.pop-yr-row .yr { color: var(--muted); }
+.pop-yr-row .amt { text-align: right; }
+.pop-yr-row .yoy { text-align: right; font-size: 11px; font-weight: 600; min-width: 52px; }
+.yoy.up { color: var(--green); }
+.yoy.down { color: var(--red); }
+.yoy.flat { color: var(--muted); }
+.pop-loading { font-size: 11.5px; color: var(--muted); font-style: italic; }
+
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+@media (max-width: 640px) {
+  .control-panel { width: calc(100vw - 32px); max-height: 46vh; }
+  .brand-sub { display: none; }
+  #signed-in-as { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="loading-overlay">
+  <div class="loader-box">
+    <div class="spinner"></div>
+    Loading branch deposit map…
+  </div>
+</div>
+
+<!-- Login overlay -->
+<div id="login-overlay" class="hidden">
+  <div class="login-card">
+    <div class="login-brand">Apple Bank</div>
+    <div class="login-sub">Apple Orchard</div>
+    <input id="login-email" class="login-input" type="email" placeholder="Email" autocomplete="username">
+    <input id="login-password" class="login-input" type="password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')handleLogin()">
+    <button id="login-btn" class="login-btn" onclick="handleLogin()">Sign in</button>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="topbar-brand">
+    <div class="brand-mark" aria-hidden="true"><i class="bi bi-tree"></i></div>
+    <div class="brand-copy">
+      <div class="brand-name">Apple Orchard</div>
+      <div class="brand-sub">Branch Deposit Map</div>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <span id="signed-in-as"></span>
+    <a class="sign-out-link" onclick="handleLogout()"><i class="bi bi-box-arrow-left"></i> Sign out</a>
+    <a class="back-link" href="index.html"><i class="bi bi-arrow-left"></i> Voice of Customer</a>
+  </div>
+</div>
+
+<!-- Map -->
+<div id="map"></div>
+
+<!-- Floating controls -->
+<div class="control-panel">
+  <div class="panel-title">Deposit Map</div>
+  <div class="panel-sub">FDIC Summary of Deposits — branch-level balances across the NYC metro. Apple Bank branches are highlighted.</div>
+
+  <div class="ctrl-group">
+    <span class="ctrl-label">Year</span>
+    <div class="year-row" id="year-row"></div>
+  </div>
+
+  <div class="ctrl-group">
+    <span class="ctrl-label">Banks shown</span>
+    <select class="ctrl-select" id="bank-filter" onchange="onBankFilterChange(this.value)">
+      <option value="all">All banks</option>
+      <option value="apple">Apple Bank only</option>
+      <option value="apple_top5">Apple + top 5 competitors</option>
+    </select>
+  </div>
+
+  <div class="ctrl-group">
+    <span class="ctrl-label">Highlight a bank</span>
+    <input class="ctrl-input" id="bank-search" type="text" placeholder="Type a bank name…" oninput="onSearchChange(this.value)" autocomplete="off">
+  </div>
+
+  <div class="ctrl-group">
+    <span class="ctrl-label">Counties</span>
+    <div class="chips-wrap" id="county-chips"></div>
+    <button class="chip-mini-btn" id="county-toggle-all" onclick="toggleAllCounties()">Clear all</button>
+  </div>
+
+  <div class="summary">
+    <div class="summary-grid">
+      <div class="summary-cell">
+        <div class="s-label">Branches shown</div>
+        <div class="s-value" id="sum-branches">—</div>
+      </div>
+      <div class="summary-cell apple">
+        <div class="s-label">Apple branches</div>
+        <div class="s-value" id="sum-apple-count">—</div>
+      </div>
+      <div class="summary-cell apple">
+        <div class="s-label">Apple deposits</div>
+        <div class="s-value" id="sum-apple-dep">—</div>
+      </div>
+      <div class="summary-cell">
+        <div class="s-label">Apple share</div>
+        <div class="s-value" id="sum-apple-share">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-row"><span class="legend-dot apple"></span> Apple Bank (cert 16068)</div>
+    <div class="legend-row"><span class="legend-dot other"></span> Other institutions</div>
+    <div class="legend-row" style="margin-top:2px;">
+      <span class="legend-size">
+        <span class="lg-circle" style="width:8px;height:8px;"></span>
+        <span class="lg-circle" style="width:16px;height:16px;"></span>
+        <span class="lg-circle" style="width:28px;height:28px;"></span>
+      </span>
+      <span style="margin-left:2px;">Circle size = deposits</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA SOURCE — Supabase (same project/auth as index.html)
+// ============================================================
+const SUPABASE_URL = "https://dzbwmemdtgcdrnkztmwq.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR6YndtZW1kdGdjZHJua3p0bXdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NzMyODgsImV4cCI6MjA5MjU0OTI4OH0.G4_NCZhjfyTB4ZFrpm5lyCwHSUYuRjJWO-BPh5SzIBg";
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const APPLE_CERT = 16068;
+const YEARS = [2021, 2022, 2023, 2024, 2025];
+const DEFAULT_YEAR = 2025;
+const DEPOSIT_CAP_THOUSANDS = 1_000_000; // cap radius input at $1B so HQ-booking outliers don't dominate
+const NYC_CENTER = [40.72, -73.90];
+const NYC_ZOOM = 10;
+
+// ---- App state ----
+let map = null;
+let markerLayer = null;
+let branches = [];               // branches for the selected year (lat/lng non-null)
+let markerByIndex = [];          // parallel array: { branch, marker }
+let currentYear = DEFAULT_YEAR;
+let bankFilter = "all";
+let searchTerm = "";
+let selectedCounties = new Set(); // empty set == none shown; we default to all
+let top5Set = new Set();          // lowercased competitor bank names (top 5 by deposits)
+const historyCache = new Map();   // uninumbr -> [{year, deposits_thousands}]
+
+// ============================================================
+// AUTH — same sign-in gate as index.html
+// ============================================================
+let appStarted = false;
+
+async function initAuth() {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (session) {
+    startApp(session);
+  } else {
+    document.getElementById("loading-overlay").classList.add("hidden");
+    document.getElementById("login-overlay").classList.remove("hidden");
+  }
+  supabaseClient.auth.onAuthStateChange((event) => {
+    if (event === "SIGNED_OUT") location.reload();
+  });
+}
+
+function startApp(session) {
+  if (appStarted) return;
+  appStarted = true;
+  document.getElementById("login-overlay").classList.add("hidden");
+  const who = document.getElementById("signed-in-as");
+  if (who && session?.user?.email) who.textContent = session.user.email;
+  bootMap();
+}
+
+async function handleLogin() {
+  const btn = document.getElementById("login-btn");
+  const errEl = document.getElementById("login-error");
+  const email = document.getElementById("login-email").value.trim();
+  const password = document.getElementById("login-password").value;
+  errEl.textContent = "";
+  if (!email || !password) { errEl.textContent = "Enter your email and password."; return; }
+
+  btn.disabled = true;
+  btn.textContent = "Signing in…";
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  btn.disabled = false;
+  btn.textContent = "Sign in";
+
+  if (error) {
+    errEl.textContent = error.message === "Invalid login credentials" ? "Wrong email or password." : error.message;
+    return;
+  }
+  document.getElementById("loading-overlay").classList.remove("hidden");
+  document.getElementById("loading-overlay").classList.remove("fade");
+  startApp(data.session);
+}
+
+async function handleLogout() {
+  await supabaseClient.auth.signOut();
+  location.reload();
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function isApple(b) { return Number(b.cert) === APPLE_CERT; }
+
+// deposits_thousands is in $thousands: /1000 => $millions
+function fmtMillions(depThousands) {
+  const m = (Number(depThousands) || 0) / 1000;
+  return "$" + m.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "M";
+}
+// B-aware money formatting for the summary strip
+function fmtMoney(depThousands) {
+  const m = (Number(depThousands) || 0) / 1000;
+  if (m >= 1000) return "$" + (m / 1000).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "B";
+  return "$" + m.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "M";
+}
+
+// sqrt-scaled radius, min 3 / max 22 px, input capped at $1B
+function radiusFor(depThousands) {
+  const v = Math.max(0, Math.min(Number(depThousands) || 0, DEPOSIT_CAP_THOUSANDS));
+  return 3 + (22 - 3) * Math.sqrt(v / DEPOSIT_CAP_THOUSANDS);
+}
+
+function titleCase(s) {
+  if (!s) return "";
+  return String(s).toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// ============================================================
+// MAP BOOT + DATA LOADING
+// ============================================================
+function bootMap() {
+  map = L.map("map", { zoomControl: true, preferCanvas: true }).setView(NYC_CENTER, NYC_ZOOM);
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: "abcd",
+    maxZoom: 19
+  }).addTo(map);
+  markerLayer = L.layerGroup().addTo(map);
+
+  renderYearButtons();
+  loadYear(DEFAULT_YEAR, true);
+}
+
+function renderYearButtons() {
+  const row = document.getElementById("year-row");
+  row.innerHTML = YEARS.map(y =>
+    `<button class="year-btn ${y === currentYear ? "active" : ""}" data-year="${y}" onclick="onYearChange(${y})">${y}</button>`
+  ).join("");
+}
+
+async function loadYear(year, firstLoad) {
+  currentYear = year;
+  renderYearButtons();
+
+  const { data, error } = await supabaseClient
+    .from("sod_branches")
+    .select("*")
+    .eq("year", year)
+    .not("lat", "is", null)
+    .not("lng", "is", null)
+    .limit(3000);
+
+  if (error) {
+    console.error("Failed to load sod_branches:", error);
+    if (firstLoad) hideLoading();
+    return;
+  }
+
+  branches = (data || []).filter(b => b.lat != null && b.lng != null);
+  computeTop5();
+  rebuildCountyChips();
+  buildMarkers();
+  applyFilters();
+
+  if (firstLoad) hideLoading();
+}
+
+function hideLoading() {
+  const el = document.getElementById("loading-overlay");
+  el.classList.add("fade");
+  setTimeout(() => el.classList.add("hidden"), 360);
+}
+
+// Top 5 competitors by total deposits in the selected year (excludes Apple)
+function computeTop5() {
+  const totals = new Map();
+  for (const b of branches) {
+    if (isApple(b)) continue;
+    const name = (b.bank_name || "").trim();
+    if (!name) continue;
+    totals.set(name, (totals.get(name) || 0) + (Number(b.deposits_thousands) || 0));
+  }
+  top5Set = new Set(
+    [...totals.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(e => e[0].toLowerCase())
+  );
+}
+
+// ============================================================
+// COUNTY CHIPS
+// ============================================================
+function rebuildCountyChips() {
+  const counties = [...new Set(branches.map(b => (b.county || "").trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b));
+
+  // Default: all counties selected. Preserve prior selection where possible on year change.
+  if (selectedCounties.size === 0 || firstCountyBuild) {
+    selectedCounties = new Set(counties);
+    firstCountyBuild = false;
+  } else {
+    // keep only counties that still exist
+    selectedCounties = new Set([...selectedCounties].filter(c => counties.includes(c)));
+    if (selectedCounties.size === 0) selectedCounties = new Set(counties);
+  }
+
+  const wrap = document.getElementById("county-chips");
+  wrap.innerHTML = counties.map(c =>
+    `<span class="county-chip ${selectedCounties.has(c) ? "active" : ""}" data-county="${encodeURIComponent(c)}" onclick="toggleCounty('${encodeURIComponent(c)}')">${titleCase(c)}</span>`
+  ).join("");
+  syncCountyToggleLabel(counties.length);
+}
+let firstCountyBuild = true;
+
+function toggleCounty(enc) {
+  const c = decodeURIComponent(enc);
+  if (selectedCounties.has(c)) selectedCounties.delete(c);
+  else selectedCounties.add(c);
+  const chip = document.querySelector(`.county-chip[data-county="${enc}"]`);
+  if (chip) chip.classList.toggle("active", selectedCounties.has(c));
+  const total = document.querySelectorAll(".county-chip").length;
+  syncCountyToggleLabel(total);
+  applyFilters();
+}
+
+function toggleAllCounties() {
+  const counties = [...document.querySelectorAll(".county-chip")].map(el => decodeURIComponent(el.dataset.county));
+  if (selectedCounties.size === counties.length) {
+    selectedCounties = new Set();          // clear all
+  } else {
+    selectedCounties = new Set(counties);  // select all
+  }
+  document.querySelectorAll(".county-chip").forEach(el => {
+    const c = decodeURIComponent(el.dataset.county);
+    el.classList.toggle("active", selectedCounties.has(c));
+  });
+  syncCountyToggleLabel(counties.length);
+  applyFilters();
+}
+
+function syncCountyToggleLabel(total) {
+  const btn = document.getElementById("county-toggle-all");
+  if (btn) btn.textContent = selectedCounties.size === total ? "Clear all" : "Select all";
+}
+
+// ============================================================
+// MARKERS + FILTERING
+// ============================================================
+function buildMarkers() {
+  markerLayer.clearLayers();
+  markerByIndex = [];
+
+  // Draw non-Apple first so Apple markers sit on top.
+  const ordered = [...branches].sort((a, b) => (isApple(a) ? 1 : 0) - (isApple(b) ? 1 : 0));
+
+  for (const b of ordered) {
+    const apple = isApple(b);
+    const marker = L.circleMarker([Number(b.lat), Number(b.lng)], {
+      radius: radiusFor(b.deposits_thousands),
+      color: apple ? "#0f5a43" : "#5f5e59",
+      weight: apple ? 1.5 : 0.5,
+      fillColor: apple ? "#1D9E75" : "#888780",
+      fillOpacity: apple ? 0.85 : 0.35,
+      opacity: apple ? 0.95 : 0.4
+    });
+    marker._branch = b;
+    marker._isApple = apple;
+    marker.bindPopup(() => basePopupHtml(b), { maxWidth: 320, minWidth: 240, autoPan: true });
+    marker.on("popupopen", (e) => loadPopupHistory(b, e.popup));
+    markerByIndex.push({ branch: b, marker });
+  }
+}
+
+function branchVisible(b) {
+  // County
+  const county = (b.county || "").trim();
+  if (!selectedCounties.has(county)) return false;
+  // Bank filter
+  if (bankFilter === "apple") return isApple(b);
+  if (bankFilter === "apple_top5") {
+    return isApple(b) || top5Set.has((b.bank_name || "").toLowerCase());
+  }
+  return true; // all
+}
+
+function applyFilters() {
+  markerLayer.clearLayers();
+  const term = searchTerm.trim().toLowerCase();
+
+  for (const { branch, marker } of markerByIndex) {
+    if (!branchVisible(branch)) continue;
+
+    // Highlight search matches (does not filter — just restyles)
+    const matches = term && (branch.bank_name || "").toLowerCase().includes(term);
+    if (matches) {
+      marker.setStyle({ color: "#d9ad58", weight: 2.5, opacity: 1, fillOpacity: Math.max(marker.options.fillOpacity, 0.7) });
+    } else {
+      const apple = marker._isApple;
+      marker.setStyle({
+        color: apple ? "#0f5a43" : "#5f5e59",
+        weight: apple ? 1.5 : 0.5,
+        fillOpacity: apple ? 0.85 : 0.35,
+        opacity: apple ? 0.95 : 0.4
+      });
+    }
+    marker.addTo(markerLayer);
+    if (matches) marker.bringToFront();
+    else if (marker._isApple) marker.bringToFront();
+  }
+
+  updateSummary();
+}
+
+function onYearChange(y) {
+  if (y === currentYear) return;
+  loadYear(y, false);
+}
+function onBankFilterChange(v) { bankFilter = v; applyFilters(); }
+function onSearchChange(v) { searchTerm = v || ""; applyFilters(); }
+
+// ============================================================
+// SUMMARY STRIP (reflects the currently visible selection)
+// ============================================================
+function updateSummary() {
+  let shown = 0, appleCount = 0, appleDep = 0, totalDep = 0;
+  for (const { branch } of markerByIndex) {
+    if (!branchVisible(branch)) continue;
+    shown++;
+    const dep = Number(branch.deposits_thousands) || 0;
+    totalDep += dep;
+    if (isApple(branch)) { appleCount++; appleDep += dep; }
+  }
+  document.getElementById("sum-branches").textContent = shown.toLocaleString("en-US");
+  document.getElementById("sum-apple-count").textContent = appleCount.toLocaleString("en-US");
+  document.getElementById("sum-apple-dep").textContent = appleCount ? fmtMoney(appleDep) : "—";
+  const share = totalDep > 0 ? (appleDep / totalDep) * 100 : 0;
+  document.getElementById("sum-apple-share").textContent = appleCount ? share.toFixed(1) + "%" : "—";
+}
+
+// ============================================================
+// POPUPS
+// ============================================================
+function basePopupHtml(b) {
+  const apple = isApple(b);
+  const addr = [titleCase(b.address), titleCase(b.city), (b.state || "").toUpperCase(), b.zip]
+    .filter(Boolean).join(", ");
+  return `
+    <div class="popup-bank ${apple ? "is-apple" : ""}">${escapeHtml(titleCase(b.bank_name) || "Unknown bank")}</div>
+    <div class="popup-addr">${escapeHtml(addr || "Address unavailable")}</div>
+    <div class="popup-deposit">${currentYear} deposits &nbsp;<strong>${fmtMillions(b.deposits_thousands)}</strong></div>
+    <div class="popup-year-label">Deposits by year</div>
+    <div class="pop-loading" data-hist="${b.uninumbr}">Loading history…</div>
+  `;
+}
+
+async function loadPopupHistory(b, popup) {
+  let rows = historyCache.get(b.uninumbr);
+  if (!rows) {
+    const { data, error } = await supabaseClient
+      .from("sod_branches")
+      .select("year, deposits_thousands")
+      .eq("uninumbr", b.uninumbr)
+      .order("year", { ascending: true });
+    if (error) { console.error(error); rows = []; }
+    else rows = data || [];
+    historyCache.set(b.uninumbr, rows);
+  }
+  // Swap the "Loading history…" placeholder for the year-by-year list.
+  popup.setContent(basePopupHtml(b).replace(
+    /<div class="pop-loading"[\s\S]*?<\/div>\s*$/,
+    yearListHtml(rows)
+  ));
+}
+
+function yearListHtml(rows) {
+  if (!rows || !rows.length) return `<div class="pop-loading">No history available.</div>`;
+  // one row per year, ascending; YoY vs previous available year
+  const sorted = [...rows].sort((a, b) => a.year - b.year);
+  let prev = null;
+  const out = sorted.map(r => {
+    const dep = Number(r.deposits_thousands) || 0;
+    let yoy = "";
+    if (prev !== null && prev > 0) {
+      const pct = ((dep - prev) / prev) * 100;
+      const cls = pct > 0.05 ? "up" : (pct < -0.05 ? "down" : "flat");
+      const arrow = pct > 0.05 ? "▲" : (pct < -0.05 ? "▼" : "—");
+      yoy = `<span class="yoy ${cls}">${arrow} ${Math.abs(pct).toFixed(1)}%</span>`;
+    } else {
+      yoy = `<span class="yoy flat">—</span>`;
+    }
+    prev = dep;
+    return `<div class="pop-yr-row"><span class="yr">${r.year}</span><span class="amt">${fmtMillions(dep)}</span>${yoy}</div>`;
+  }).join("");
+  return out;
+}
+
+function escapeHtml(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener("DOMContentLoaded", () => {
+  initAuth();
+});
+</script>
+</body>
+</html>
