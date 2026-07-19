@@ -160,6 +160,17 @@ body {
 }
 .chip-mini-btn:hover { color: var(--accent2); }
 
+/* Color-by mode toggle (segmented) */
+.mode-row { display: flex; gap: 5px; }
+.mode-btn {
+  flex: 1; padding: 7px 0; text-align: center;
+  border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--muted);
+  font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s;
+}
+.mode-btn:hover { color: var(--text); border-color: var(--accent2); }
+.mode-btn.active { background: var(--accent2); color: #fff; border-color: var(--accent2); }
+
 /* Summary strip */
 .summary {
   margin-top: 4px;
@@ -186,6 +197,11 @@ body {
 .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex: 0 0 auto; }
 .legend-dot.apple { background: var(--accent); }
 .legend-dot.other { background: var(--gray); opacity: .55; }
+.legend-dot.pos { background: #55bd7b; }
+.legend-dot.neg { background: #ef6863; }
+.legend-dot.mixed { background: #d9ad58; }
+.legend-dot.nodata { background: #7f9ba0; }
+.legend-dot.dim { background: var(--gray); opacity: .22; }
 .legend-size { display: flex; align-items: flex-end; gap: 8px; margin-top: 2px; }
 .legend-size .lg-circle { border-radius: 50%; border: 1px solid var(--muted); opacity: .6; }
 
@@ -259,6 +275,32 @@ body {
 .yoy.flat { color: var(--muted); }
 .pop-loading { font-size: 11.5px; color: var(--muted); font-style: italic; }
 
+/* Popup sentiment block (Apple branches) */
+.popup-sent { margin-top: 4px; }
+.pop-sent-none { font-size: 11.5px; color: var(--muted); font-style: italic; }
+.pop-sent-top { display: flex; align-items: baseline; gap: 10px; margin-bottom: 7px; }
+.pop-rating { font-family: 'DM Serif Display', serif; font-size: 17px; color: var(--yellow); }
+.pop-rev-count { font-size: 11.5px; color: var(--muted); }
+.pop-sent-bar {
+  display: flex; height: 7px; width: 100%; border-radius: 4px; overflow: hidden;
+  background: var(--surface2); margin-bottom: 6px;
+}
+.pop-sent-bar .seg { display: block; height: 100%; }
+.pop-sent-bar .seg.pos { background: #55bd7b; }
+.pop-sent-bar .seg.neu { background: #6b7a8c; }
+.pop-sent-bar .seg.neg { background: #ef6863; }
+.pop-sent-split { display: flex; gap: 10px; font-size: 11px; font-weight: 600; }
+.pop-sent-split .pos { color: #55bd7b; }
+.pop-sent-split .neu { color: var(--muted); }
+.pop-sent-split .neg { color: #ef6863; }
+
+.legend-cap { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .7px; margin-bottom: 3px; }
+.legend-note {
+  margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--border-soft);
+  font-size: 10.5px; line-height: 1.45; color: var(--muted);
+}
+.hidta-caption { margin-top: 7px; font-size: 10.5px; line-height: 1.4; color: var(--muted); font-style: italic; }
+
 ::-webkit-scrollbar { width: 7px; height: 7px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
@@ -323,6 +365,14 @@ body {
   </div>
 
   <div class="ctrl-group">
+    <span class="ctrl-label">Color by</span>
+    <div class="mode-row" id="mode-row">
+      <button class="mode-btn active" data-mode="bank" onclick="onColorMode('bank')">Bank</button>
+      <button class="mode-btn" data-mode="sentiment" onclick="onColorMode('sentiment')">Sentiment</button>
+    </div>
+  </div>
+
+  <div class="ctrl-group">
     <span class="ctrl-label">Banks shown</span>
     <select class="ctrl-select" id="bank-filter" onchange="onBankFilterChange(this.value)">
       <option value="all">All banks</option>
@@ -340,6 +390,14 @@ body {
     <span class="ctrl-label">Counties</span>
     <div class="chips-wrap" id="county-chips"></div>
     <button class="chip-mini-btn" id="county-toggle-all" onclick="toggleAllCounties()">Clear all</button>
+  </div>
+
+  <div class="ctrl-group">
+    <span class="ctrl-label">Overlay</span>
+    <div class="mode-row">
+      <button class="mode-btn" id="hidta-btn" onclick="toggleHidta()" style="flex:1;">HIDTA/HIFCA: Off</button>
+    </div>
+    <div class="hidta-caption" id="hidta-caption" style="display:none;">Context layer for BSA/AML geographic risk assessment.</div>
   </div>
 
   <div class="summary">
@@ -363,18 +421,7 @@ body {
     </div>
   </div>
 
-  <div class="legend">
-    <div class="legend-row"><span class="legend-dot apple"></span> Apple Bank (cert 16068)</div>
-    <div class="legend-row"><span class="legend-dot other"></span> Other institutions</div>
-    <div class="legend-row" style="margin-top:2px;">
-      <span class="legend-size">
-        <span class="lg-circle" style="width:8px;height:8px;"></span>
-        <span class="lg-circle" style="width:16px;height:16px;"></span>
-        <span class="lg-circle" style="width:28px;height:28px;"></span>
-      </span>
-      <span style="margin-left:2px;">Circle size = deposits</span>
-    </div>
-  </div>
+  <div class="legend" id="legend"></div>
 </div>
 
 <script>
@@ -403,6 +450,19 @@ let searchTerm = "";
 let selectedCounties = new Set(); // empty set == none shown; we default to all
 let top5Set = new Set();          // lowercased competitor bank names (top 5 by deposits)
 const historyCache = new Map();   // uninumbr -> [{year, deposits_thousands}]
+
+// ---- Sentiment layer (Task B) ----
+let colorMode = "bank";                 // "bank" | "sentiment"
+let crosswalkAddrToUni = new Map();     // review branch_address -> uninumbr (string)
+let crosswalkUniSet = new Set();        // set of crosswalked uninumbrs (string)
+let sentimentByUni = new Map();         // uninumbr (string) -> { count, pos, neg, neu, ratingSum, ratingCount }
+let sentimentLoaded = false;
+const SENTIMENT_MONTHS = 12;            // review window
+
+// ---- HIDTA/HIFCA context overlay ----
+let hidtaOn = false;
+let hidtaLayer = null;
+let hidtaGeoLoaded = false;
 
 // ============================================================
 // AUTH — same sign-in gate as index.html
@@ -494,6 +554,11 @@ function bootMap() {
   // Zoom control on the right so it doesn't sit under the left-hand control panel.
   map = L.map("map", { zoomControl: false, preferCanvas: true }).setView(NYC_CENTER, NYC_ZOOM);
   L.control.zoom({ position: "topright" }).addTo(map);
+  // Dedicated pane for the county context overlay: above the basemap, below markers,
+  // and non-interactive so it never intercepts marker clicks.
+  map.createPane("hidtaPane");
+  map.getPane("hidtaPane").style.zIndex = 350;
+  map.getPane("hidtaPane").style.pointerEvents = "none";
   L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
     subdomains: "abcd",
@@ -502,7 +567,89 @@ function bootMap() {
   markerLayer = L.layerGroup().addTo(map);
 
   renderYearButtons();
+  updateLegend();
   loadYear(DEFAULT_YEAR, true);
+  loadSentimentLayer(); // runs in parallel; restyles markers once ready
+}
+
+// Generic paged fetch: makeQuery() must return a fresh query builder each call.
+async function pagedFetch(makeQuery) {
+  const PAGE = 1000;
+  const out = [];
+  let start = 0;
+  while (true) {
+    const { data, error } = await makeQuery().range(start, start + PAGE - 1);
+    if (error) { console.error("pagedFetch error:", error); break; }
+    const page = data || [];
+    out.push(...page);
+    if (page.length < PAGE) break;
+    start += PAGE;
+  }
+  return out;
+}
+
+function parseReviewDate(rv) {
+  const raw = rv.review_date ?? rv.date ?? rv.created_at ?? rv.published_at;
+  if (!raw) return null;
+  const d = new Date(raw);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+// Task B: load the crosswalk + last-12-months Google Maps sentiment per Apple branch.
+async function loadSentimentLayer() {
+  try {
+    const cw = await pagedFetch(() =>
+      supabaseClient.from("branch_crosswalk").select("branch_address, uninumbr").order("branch_address"));
+    crosswalkAddrToUni = new Map();
+    crosswalkUniSet = new Set();
+    for (const r of cw) {
+      if (r.branch_address == null || r.uninumbr == null) continue;
+      const uni = String(r.uninumbr);
+      crosswalkAddrToUni.set(r.branch_address, uni);
+      crosswalkUniSet.add(uni);
+    }
+
+    const addresses = [...crosswalkAddrToUni.keys()];
+    // Chunk the .in() filter so a long list of comma-bearing addresses can't
+    // overflow the request URL length limit.
+    const reviews = [];
+    const CHUNK = 40;
+    for (let i = 0; i < addresses.length; i += CHUNK) {
+      const slice = addresses.slice(i, i + CHUNK);
+      const part = await pagedFetch(() =>
+        supabaseClient.from("ab_reviews").select("*")
+          .eq("source", "Google Maps")
+          .in("branch_address", slice)
+          .order("branch_address"));
+      reviews.push(...part);
+    }
+
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - SENTIMENT_MONTHS);
+
+    sentimentByUni = new Map();
+    for (const rv of reviews) {
+      const uni = crosswalkAddrToUni.get(rv.branch_address);
+      if (!uni) continue;
+      const d = parseReviewDate(rv);
+      if (!d || d < cutoff) continue; // last 12 months only
+      const a = sentimentByUni.get(uni) || { count: 0, pos: 0, neg: 0, neu: 0, ratingSum: 0, ratingCount: 0 };
+      a.count++;
+      const s = String(rv.sentiment ?? rv.ai_sentiment ?? "neutral").toLowerCase();
+      if (s.startsWith("pos")) a.pos++;
+      else if (s.startsWith("neg")) a.neg++;
+      else a.neu++;
+      const ratingRaw = rv.rating ?? rv.stars ?? rv.score;
+      const rn = (ratingRaw == null || ratingRaw === "") ? null : Number(ratingRaw);
+      if (rn != null && !isNaN(rn)) { a.ratingSum += rn; a.ratingCount++; }
+      sentimentByUni.set(uni, a);
+    }
+
+    sentimentLoaded = true;
+    if (map && markerByIndex.length) applyFilters(); // recolor if sentiment mode is active
+  } catch (e) {
+    console.error("Failed to load sentiment layer:", e);
+  }
 }
 
 function renderYearButtons() {
@@ -645,6 +792,43 @@ function syncCountyToggleLabel(total) {
 // ============================================================
 // MARKERS + FILTERING
 // ============================================================
+// Marker palette
+const C_APPLE_FILL = "#1D9E75", C_APPLE_STROKE = "#0f5a43";
+const C_OTHER_FILL = "#888780", C_OTHER_STROKE = "#5f5e59";
+const C_POS = "#55bd7b", C_NEG = "#ef6863", C_MIX = "#d9ad58", C_NODATA = "#7f9ba0";
+const C_HIGHLIGHT = "#d9ad58";
+
+// Classify an Apple branch's last-12-months sentiment into a bucket.
+function sentimentBucket(uni) {
+  if (!crosswalkUniSet.has(uni)) return "nodata";
+  const a = sentimentByUni.get(uni);
+  if (!a || a.count < 3) return "nodata";
+  const pos = a.pos / a.count, neg = a.neg / a.count;
+  if (pos >= 0.70) return "pos";
+  if (neg >= 0.40) return "neg";
+  return "mixed";
+}
+
+// Full Leaflet path style for a marker under the current color mode.
+function styleForMarker(marker, matches) {
+  if (matches) {
+    return { color: C_HIGHLIGHT, weight: 2.5, opacity: 1, fillColor: C_HIGHLIGHT, fillOpacity: 0.8 };
+  }
+  const apple = marker._isApple;
+  if (colorMode === "sentiment") {
+    if (apple) {
+      const bucket = sentimentBucket(String(marker._branch.uninumbr));
+      const c = bucket === "pos" ? C_POS : bucket === "neg" ? C_NEG : bucket === "mixed" ? C_MIX : C_NODATA;
+      return { color: c, weight: 1.5, fillColor: c, fillOpacity: 0.85, opacity: 0.95 };
+    }
+    // non-Apple dimmed
+    return { color: C_OTHER_STROKE, weight: 0, fillColor: C_OTHER_FILL, fillOpacity: 0.12, opacity: 0.12 };
+  }
+  // bank mode
+  if (apple) return { color: C_APPLE_STROKE, weight: 1.5, fillColor: C_APPLE_FILL, fillOpacity: 0.85, opacity: 0.95 };
+  return { color: C_OTHER_STROKE, weight: 0.5, fillColor: C_OTHER_FILL, fillOpacity: 0.35, opacity: 0.4 };
+}
+
 function buildMarkers() {
   markerLayer.clearLayers();
   markerByIndex = [];
@@ -655,15 +839,11 @@ function buildMarkers() {
   for (const b of ordered) {
     const apple = isApple(b);
     const marker = L.circleMarker([Number(b.lat), Number(b.lng)], {
-      radius: radiusFor(b.deposits_thousands),
-      color: apple ? "#0f5a43" : "#5f5e59",
-      weight: apple ? 1.5 : 0.5,
-      fillColor: apple ? "#1D9E75" : "#888780",
-      fillOpacity: apple ? 0.85 : 0.35,
-      opacity: apple ? 0.95 : 0.4
+      radius: radiusFor(b.deposits_thousands)
     });
     marker._branch = b;
     marker._isApple = apple;
+    marker.setStyle(styleForMarker(marker, false));
     marker.bindPopup(() => basePopupHtml(b), { maxWidth: 320, minWidth: 240, autoPan: true });
     marker.on("popupopen", (e) => loadPopupHistory(b, e.popup));
     markerByIndex.push({ branch: b, marker });
@@ -690,18 +870,8 @@ function applyFilters() {
     if (!branchVisible(branch)) continue;
 
     // Highlight search matches (does not filter — just restyles)
-    const matches = term && (branch.bank_name || "").toLowerCase().includes(term);
-    if (matches) {
-      marker.setStyle({ color: "#d9ad58", weight: 2.5, opacity: 1, fillOpacity: Math.max(marker.options.fillOpacity, 0.7) });
-    } else {
-      const apple = marker._isApple;
-      marker.setStyle({
-        color: apple ? "#0f5a43" : "#5f5e59",
-        weight: apple ? 1.5 : 0.5,
-        fillOpacity: apple ? 0.85 : 0.35,
-        opacity: apple ? 0.95 : 0.4
-      });
-    }
+    const matches = !!(term && (branch.bank_name || "").toLowerCase().includes(term));
+    marker.setStyle(styleForMarker(marker, matches));
     marker.addTo(markerLayer);
     if (matches) marker.bringToFront();
     else if (marker._isApple) marker.bringToFront();
@@ -716,6 +886,92 @@ function onYearChange(y) {
 }
 function onBankFilterChange(v) { bankFilter = v; applyFilters(); }
 function onSearchChange(v) { searchTerm = v || ""; applyFilters(); }
+
+function onColorMode(mode) {
+  if (mode === colorMode) return;
+  colorMode = mode;
+  document.querySelectorAll("#mode-row .mode-btn").forEach(el =>
+    el.classList.toggle("active", el.dataset.mode === mode));
+  updateLegend();
+  applyFilters();
+}
+
+// ---- HIDTA/HIFCA context overlay ----
+async function toggleHidta() {
+  hidtaOn = !hidtaOn;
+  const btn = document.getElementById("hidta-btn");
+  if (btn) {
+    btn.classList.toggle("active", hidtaOn);
+    btn.textContent = "HIDTA/HIFCA: " + (hidtaOn ? "On" : "Off");
+  }
+  const cap = document.getElementById("hidta-caption");
+  if (cap) cap.style.display = hidtaOn ? "block" : "none";
+
+  if (hidtaOn) {
+    await ensureHidtaLayer();
+    if (hidtaLayer && !map.hasLayer(hidtaLayer)) hidtaLayer.addTo(map);
+  } else if (hidtaLayer && map.hasLayer(hidtaLayer)) {
+    map.removeLayer(hidtaLayer);
+  }
+  updateLegend();
+}
+
+// Loads the committed static county GeoJSON (same-origin asset, not an external URL).
+async function ensureHidtaLayer() {
+  if (hidtaLayer || hidtaGeoLoaded) return;
+  hidtaGeoLoaded = true;
+  try {
+    const res = await fetch("assets/hidta_hifca_counties.geojson");
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const geo = await res.json();
+    hidtaLayer = L.geoJSON(geo, {
+      pane: "hidtaPane",
+      interactive: false,
+      style: {
+        color: "#d4933f",
+        weight: 1,
+        opacity: 0.45,
+        fillColor: "#d4933f",
+        fillOpacity: 0.10
+      }
+    });
+  } catch (e) {
+    console.error("Failed to load HIDTA/HIFCA overlay:", e);
+    hidtaGeoLoaded = false; // allow a retry on next toggle
+  }
+}
+
+function updateLegend() {
+  const el = document.getElementById("legend");
+  if (!el) return;
+  const sizeRow = `
+    <div class="legend-row" style="margin-top:2px;">
+      <span class="legend-size">
+        <span class="lg-circle" style="width:8px;height:8px;"></span>
+        <span class="lg-circle" style="width:16px;height:16px;"></span>
+        <span class="lg-circle" style="width:28px;height:28px;"></span>
+      </span>
+      <span style="margin-left:2px;">Circle size = deposits</span>
+    </div>`;
+  if (colorMode === "sentiment") {
+    el.innerHTML = `
+      <div class="legend-cap">Apple branches · Google reviews, last 12 mo</div>
+      <div class="legend-row"><span class="legend-dot pos"></span> ≥70% positive</div>
+      <div class="legend-row"><span class="legend-dot neg"></span> ≥40% negative</div>
+      <div class="legend-row"><span class="legend-dot mixed"></span> Mixed</div>
+      <div class="legend-row"><span class="legend-dot nodata"></span> No crosswalk / &lt;3 reviews</div>
+      <div class="legend-row"><span class="legend-dot dim"></span> Other institutions (dimmed)</div>
+      ${sizeRow}`;
+  } else {
+    el.innerHTML = `
+      <div class="legend-row"><span class="legend-dot apple"></span> Apple Bank (cert 16068)</div>
+      <div class="legend-row"><span class="legend-dot other"></span> Other institutions</div>
+      ${sizeRow}`;
+  }
+  if (hidtaOn) {
+    el.innerHTML += `<div class="legend-note">All mapped counties fall within the NY/NJ High Intensity Drug Trafficking Area (HIDTA) and the NY/NJ High Intensity Financial Crime Area (HIFCA).</div>`;
+  }
+}
 
 // ============================================================
 // SUMMARY STRIP (reflects the currently visible selection)
@@ -747,9 +1003,49 @@ function basePopupHtml(b) {
     <div class="popup-bank ${apple ? "is-apple" : ""}">${escapeHtml(titleCase(b.bank_name) || "Unknown bank")}</div>
     <div class="popup-addr">${escapeHtml(addr || "Address unavailable")}</div>
     <div class="popup-deposit">${currentYear} deposits &nbsp;<strong>${fmtMillions(b.deposits_thousands)}</strong></div>
+    ${sentimentBlockHtml(b)}
     <div class="popup-year-label">Deposits by year</div>
     <div class="pop-loading" data-hist="${b.uninumbr}">Loading history…</div>
   `;
+}
+
+// Apple-only: average rating, review count, and sentiment split (last 12 months).
+function sentimentBlockHtml(b) {
+  if (!isApple(b)) return "";
+  const uni = String(b.uninumbr);
+  const label = `<div class="popup-year-label">Google reviews · last 12 mo</div>`;
+  if (!sentimentLoaded) {
+    return `<div class="popup-sent">${label}<div class="pop-sent-none">Loading reviews…</div></div>`;
+  }
+  if (!crosswalkUniSet.has(uni)) {
+    return `<div class="popup-sent">${label}<div class="pop-sent-none">Not crosswalked to review data.</div></div>`;
+  }
+  const a = sentimentByUni.get(uni);
+  if (!a || a.count === 0) {
+    return `<div class="popup-sent">${label}<div class="pop-sent-none">No Google Maps reviews in the last 12 months.</div></div>`;
+  }
+  const avg = a.ratingCount ? (a.ratingSum / a.ratingCount) : null;
+  const posPct = Math.round((a.pos / a.count) * 100);
+  const negPct = Math.round((a.neg / a.count) * 100);
+  const neuPct = Math.max(0, 100 - posPct - negPct);
+  return `
+    <div class="popup-sent">
+      ${label}
+      <div class="pop-sent-top">
+        <span class="pop-rating">${avg != null ? ("★ " + avg.toFixed(1)) : "—"}</span>
+        <span class="pop-rev-count">${a.count} review${a.count === 1 ? "" : "s"}</span>
+      </div>
+      <div class="pop-sent-bar">
+        <span class="seg pos" style="width:${posPct}%"></span>
+        <span class="seg neu" style="width:${neuPct}%"></span>
+        <span class="seg neg" style="width:${negPct}%"></span>
+      </div>
+      <div class="pop-sent-split">
+        <span class="pos">${posPct}% pos</span>
+        <span class="neu">${neuPct}% neu</span>
+        <span class="neg">${negPct}% neg</span>
+      </div>
+    </div>`;
 }
 
 async function loadPopupHistory(b, popup) {
